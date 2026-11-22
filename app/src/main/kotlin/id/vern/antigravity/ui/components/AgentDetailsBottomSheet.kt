@@ -93,6 +93,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -1215,12 +1216,20 @@ fun AgentDetailsBottomSheet(
                                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                                         ) {
                                             val isAgy = currentSession == TerminalSessionManager.AGY_SESSION_NAME
-                                            Icon(
-                                                imageVector = if (isAgy) Icons.Default.SmartToy else Icons.Default.Terminal,
-                                                contentDescription = null,
-                                                tint = if (isAgy) Color(0xFF38BDF8) else AntigravityGreen,
-                                                modifier = Modifier.size(14.dp)
-                                            )
+                                            if (isAgy) {
+                                                androidx.compose.foundation.Image(
+                                                    painter = painterResource(id = R.drawable.ic_launcher_logo),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(15.dp)
+                                                )
+                                            } else {
+                                                Icon(
+                                                    imageVector = Icons.Default.Terminal,
+                                                    contentDescription = null,
+                                                    tint = AntigravityGreen,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
                                                 text = currentSession,
@@ -1257,12 +1266,20 @@ fun AgentDetailsBottomSheet(
                                                     )
                                                 },
                                                 leadingIcon = {
-                                                    Icon(
-                                                        if (isAgy) Icons.Default.SmartToy else Icons.Default.Terminal,
-                                                        contentDescription = null,
-                                                        tint = if (isAgy) Color(0xFF38BDF8) else if (isSelected) AntigravityGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
+                                                    if (isAgy) {
+                                                        androidx.compose.foundation.Image(
+                                                            painter = painterResource(id = R.drawable.ic_launcher_logo),
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    } else {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Terminal,
+                                                            contentDescription = null,
+                                                            tint = if (isSelected) AntigravityGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
                                                 },
                                                 onClick = {
                                                     TerminalSessionManager.switchSession(sName)
