@@ -276,6 +276,7 @@ object EngineExecutor {
                     }
                 } catch (e: Throwable) {}
             }
+            id.vern.antigravity.service.PermissionConfigService.syncSettingsJsonFiles(context)
         } catch (e: Exception) {}
 
         if (ldBin.exists() && agyBin.exists()) {

@@ -36,6 +36,7 @@ data class AvailableModelInfo(
                 displayName.equals(query, ignoreCase = true) ||
                 (query.contains("Flash", ignoreCase = true) && (modelId.contains("Flash", ignoreCase = true) || displayName.contains("Flash", ignoreCase = true))) ||
                 (query.contains("Neon", ignoreCase = true) && (modelId.contains("Neon", ignoreCase = true) || displayName.contains("Neon", ignoreCase = true))) ||
+                (query.contains("Hydrogen", ignoreCase = true) && (modelId.contains("Hydrogen", ignoreCase = true) || displayName.contains("Hydrogen", ignoreCase = true))) ||
                 (query.contains("Argon", ignoreCase = true) && (modelId.contains("Argon", ignoreCase = true) || displayName.contains("Argon", ignoreCase = true))) ||
                 (query.contains("Carbon", ignoreCase = true) && (modelId.contains("Carbon", ignoreCase = true) || displayName.contains("Carbon", ignoreCase = true))) ||
                 (query.contains("Sonnet", ignoreCase = true) && (modelId.contains("Sonnet", ignoreCase = true) || displayName.contains("Sonnet", ignoreCase = true) || modelId.equals("Claude", ignoreCase = true))) ||

@@ -67,7 +67,6 @@ import id.vern.antigravity.ui.components.ModelSelectorDialog
 import id.vern.antigravity.ui.components.TerminalView
 import id.vern.antigravity.viewmodel.AntigravityViewModel
 import java.io.File
-import java.util.UUID
 
 enum class ActiveToolView {
     CHAT,
@@ -94,8 +93,8 @@ fun WorkspaceScreen(
     val quotaErrorMessage by viewModel.quotaErrorMessage.collectAsStateWithLifecycle()
     var showModelDialog by remember { mutableStateOf(false) }
 
-    val openTabs = remember { mutableStateListOf<OpenTab>() }
-    var activeTabId by remember { mutableStateOf<String?>(null) }
+    val openTabs by viewModel.openEditorTabs.collectAsStateWithLifecycle()
+    val activeTabId by viewModel.activeEditorTabId.collectAsStateWithLifecycle()
 
     val rootDir = remember {
         val docs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
@@ -103,27 +102,8 @@ fun WorkspaceScreen(
     }
 
     fun openFile(file: File) {
-        val existing = openTabs.find { it.file.absolutePath == file.absolutePath }
-        if (existing != null) {
-            activeTabId = existing.id
-            activeView = ActiveToolView.EDITOR
-        } else {
-            try {
-                val content = if (file.length() < 2 * 1024 * 1024) file.readText() else "// File too large to edit (>2MB)"
-                val tab = OpenTab(
-                    id = UUID.randomUUID().toString(),
-                    file = file,
-                    title = file.name,
-                    content = content,
-                    originalContent = content
-                )
-                openTabs.add(tab)
-                activeTabId = tab.id
-                activeView = ActiveToolView.EDITOR
-            } catch (e: Exception) {
-                Toast.makeText(context, "Cannot open file: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
+        viewModel.openFileInEditor(file)
+        activeView = ActiveToolView.EDITOR
     }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -214,27 +194,28 @@ fun WorkspaceScreen(
                                     modifiedText = activeTab.content,
                                     onApplyChanges = {
                                         activeTab.file.writeText(activeTab.content)
-                                        activeTab.originalContent = activeTab.content
+                                        viewModel.updateEditorContent(activeTab.id, activeTab.content)
+                                        viewModel.saveEditorTab(context, activeTab.id)
                                     },
                                     onDiscardChanges = {
-                                        activeTab.content = activeTab.originalContent
+                                        viewModel.updateEditorContent(activeTab.id, activeTab.originalContent)
                                     },
                                     onBack = {
-                                        val idx = openTabs.indexOf(activeTab)
-                                        if (idx != -1) openTabs[idx] = activeTab.copy(isDiffView = false)
+                                        viewModel.setEditorTabDiffView(activeTab.id, false)
                                     }
                                 )
                             } else {
                                 CodeEditor(
                                     tab = activeTab,
-                                    onSaveFile = { f, content -> f.writeText(content) },
+                                    onSaveFile = { _, content ->
+                                        viewModel.updateEditorContent(activeTab.id, content)
+                                        viewModel.saveEditorTab(context, activeTab.id)
+                                    },
                                     onCloseTab = {
-                                        openTabs.remove(activeTab)
-                                        activeTabId = openTabs.lastOrNull()?.id
+                                        viewModel.closeEditorTab(activeTab.id)
                                     },
                                     onToggleDiff = {
-                                        val idx = openTabs.indexOf(activeTab)
-                                        if (idx != -1) openTabs[idx] = activeTab.copy(isDiffView = true)
+                                        viewModel.setEditorTabDiffView(activeTab.id, true)
                                     }
                                 )
                             }
@@ -443,7 +424,7 @@ fun WorkspaceScreen(
                                     .fillMaxSize()
                                     .padding(innerPadding)
                             ) {
-                                if (activeTab != null) {
+                                 if (activeTab != null) {
                                     if (activeTab.isDiffView) {
                                         DiffViewer(
                                             fileName = activeTab.title,
@@ -451,27 +432,28 @@ fun WorkspaceScreen(
                                             modifiedText = activeTab.content,
                                             onApplyChanges = {
                                                 activeTab.file.writeText(activeTab.content)
-                                                activeTab.originalContent = activeTab.content
+                                                viewModel.updateEditorContent(activeTab.id, activeTab.content)
+                                                viewModel.saveEditorTab(context, activeTab.id)
                                             },
                                             onDiscardChanges = {
-                                                activeTab.content = activeTab.originalContent
+                                                viewModel.updateEditorContent(activeTab.id, activeTab.originalContent)
                                             },
                                             onBack = {
-                                                val idx = openTabs.indexOf(activeTab)
-                                                if (idx != -1) openTabs[idx] = activeTab.copy(isDiffView = false)
+                                                viewModel.setEditorTabDiffView(activeTab.id, false)
                                             }
                                         )
                                     } else {
                                         CodeEditor(
                                             tab = activeTab,
-                                            onSaveFile = { f, content -> f.writeText(content) },
+                                            onSaveFile = { _, content ->
+                                                viewModel.updateEditorContent(activeTab.id, content)
+                                                viewModel.saveEditorTab(context, activeTab.id)
+                                            },
                                             onCloseTab = {
-                                                openTabs.remove(activeTab)
-                                                activeTabId = openTabs.lastOrNull()?.id
+                                                viewModel.closeEditorTab(activeTab.id)
                                             },
                                             onToggleDiff = {
-                                                val idx = openTabs.indexOf(activeTab)
-                                                if (idx != -1) openTabs[idx] = activeTab.copy(isDiffView = true)
+                                                viewModel.setEditorTabDiffView(activeTab.id, true)
                                             }
                                         )
                                     }

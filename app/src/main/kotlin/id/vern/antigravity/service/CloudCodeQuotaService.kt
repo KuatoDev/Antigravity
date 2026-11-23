@@ -292,9 +292,15 @@ object CloudCodeQuotaService {
         return ids
     }
 
+    private val EFFORT_TITLE_REGEX = Regex("\\s*\\((High|Medium|Low|XHigh|Max|Thinking|Default)\\)", RegexOption.IGNORE_CASE)
+
     private fun modelTitle(mObj: JSONObject?, key: String): String {
         val t = mObj?.optString("title")?.ifBlank { null }
-        if (!t.isNullOrBlank()) return AgyModelsService.cleanDisplayName(t)
+            ?: mObj?.optString("label")?.ifBlank { null }
+            ?: mObj?.optString("name")?.ifBlank { null }
+        if (!t.isNullOrBlank() && !t.contains("-tiered", ignoreCase = true) && !t.startsWith("gemini-", ignoreCase = true)) {
+            return AgyModelsService.cleanDisplayName(t)
+        }
         val d = mObj?.optString("displayName")?.ifBlank { null }
         if (!d.isNullOrBlank() && !d.contains("-tiered", ignoreCase = true) && !d.startsWith("gemini-", ignoreCase = true)) {
             return AgyModelsService.cleanDisplayName(d)
@@ -312,38 +318,53 @@ object CloudCodeQuotaService {
         return id.contains("argon", ignoreCase = true) || title.contains("argon", ignoreCase = true)
     }
 
-    private fun sharedModelTitles(orderedIds: List<String>, modelsMap: JSONObject?, googleGroup: Boolean): List<String> {
-        if (modelsMap == null) return emptyList()
+    private fun sharedModelTitles(orderedIds: List<String>, modelsMap: JSONObject?, googleGroup: Boolean, cliModels: List<CliModel> = emptyList()): List<String> {
         val titles = mutableListOf<String>()
-        for (id in orderedIds) {
-            if (id.endsWith("-disabled", ignoreCase = true)) continue
-            if (id.startsWith("tab_", ignoreCase = true) || id.startsWith("chat_", ignoreCase = true) || id.contains("embedding", ignoreCase = true)) continue
-            val mObj = modelsMap.optJSONObject(id) ?: continue
-            val isGoogle = modelProviderName(mObj) == "Google"
+        if (modelsMap != null) {
+            for (id in orderedIds) {
+                if (id.endsWith("-disabled", ignoreCase = true)) continue
+                if (id.startsWith("tab_", ignoreCase = true) || id.startsWith("chat_", ignoreCase = true) || id.contains("embedding", ignoreCase = true)) continue
+                val mObj = modelsMap.optJSONObject(id) ?: continue
+                val isGoogle = modelProviderName(mObj) == "Google"
+                if (isGoogle != googleGroup) continue
+                val t = modelTitle(mObj, id)
+                if (googleGroup && isArgonModel(id, t)) continue
+                val cleanTitle = t.replace(EFFORT_TITLE_REGEX, "").trim()
+                if (cleanTitle.isNotBlank() && !titles.contains(cleanTitle)) titles.add(cleanTitle)
+            }
+        }
+        for (cli in cliModels) {
+            val isGoogle = cli.provider.equals("Google", ignoreCase = true) ||
+                    AgyModelsService.providerForDisplayName(cli.displayName).equals("Google", ignoreCase = true)
             if (isGoogle != googleGroup) continue
-            val t = modelTitle(mObj, id)
-            if (googleGroup && isArgonModel(id, t)) continue
-            val cleanTitle = t.replace(Regex("\\s*\\((High|Medium|Low|Default)\\)", RegexOption.IGNORE_CASE), "").trim()
-            if (!titles.contains(cleanTitle)) titles.add(cleanTitle)
+            if (googleGroup && isArgonModel(cli.cliId, cli.displayName)) continue
+            val cleanTitle = cli.displayName.replace(EFFORT_TITLE_REGEX, "").trim()
+            if (cleanTitle.isNotBlank() && !titles.contains(cleanTitle)) titles.add(cleanTitle)
         }
         return titles
     }
 
-    private fun argonModelTitles(orderedIds: List<String>, modelsMap: JSONObject?): List<String> {
-        if (modelsMap == null) return emptyList()
+    private fun argonModelTitles(orderedIds: List<String>, modelsMap: JSONObject?, cliModels: List<CliModel> = emptyList()): List<String> {
         val titles = mutableListOf<String>()
-        for (id in orderedIds) {
-            if (id.endsWith("-disabled", ignoreCase = true)) continue
-            if (id.startsWith("tab_", ignoreCase = true) || id.startsWith("chat_", ignoreCase = true) || id.contains("embedding", ignoreCase = true)) continue
-            val mObj = modelsMap.optJSONObject(id) ?: continue
-            val tag = mObj.optString("tagTitle", "")
-            if (tag.equals("Unavailable", ignoreCase = true)) continue
-            val isGoogle = modelProviderName(mObj) == "Google"
-            if (!isGoogle) continue
-            val t = modelTitle(mObj, id)
-            if (!isArgonModel(id, t)) continue
-            val cleanTitle = t.replace(Regex("\\s*\\((High|Medium|Low|Default)\\)", RegexOption.IGNORE_CASE), "").trim()
-            if (!titles.contains(cleanTitle)) titles.add(cleanTitle)
+        if (modelsMap != null) {
+            for (id in orderedIds) {
+                if (id.endsWith("-disabled", ignoreCase = true)) continue
+                if (id.startsWith("tab_", ignoreCase = true) || id.startsWith("chat_", ignoreCase = true) || id.contains("embedding", ignoreCase = true)) continue
+                val mObj = modelsMap.optJSONObject(id) ?: continue
+                val tag = mObj.optString("tagTitle", "")
+                if (tag.equals("Unavailable", ignoreCase = true)) continue
+                val isGoogle = modelProviderName(mObj) == "Google"
+                if (!isGoogle) continue
+                val t = modelTitle(mObj, id)
+                if (!isArgonModel(id, t)) continue
+                val cleanTitle = t.replace(EFFORT_TITLE_REGEX, "").trim()
+                if (cleanTitle.isNotBlank() && !titles.contains(cleanTitle)) titles.add(cleanTitle)
+            }
+        }
+        for (cli in cliModels) {
+            if (!isArgonModel(cli.cliId, cli.displayName)) continue
+            val cleanTitle = cli.displayName.replace(EFFORT_TITLE_REGEX, "").trim()
+            if (cleanTitle.isNotBlank() && !titles.contains(cleanTitle)) titles.add(cleanTitle)
         }
         return titles
     }
@@ -351,6 +372,7 @@ object CloudCodeQuotaService {
     private fun buildAvailableModels(
         orderedIds: List<String>,
         modelsMap: JSONObject?,
+        cliModels: List<CliModel>,
         geminiFraction: Double?,
         geminiReset: String?,
         argonFraction: Double?,
@@ -358,34 +380,59 @@ object CloudCodeQuotaService {
         thirdPartyFraction: Double?,
         thirdPartyReset: String?
     ): List<AvailableModelInfo> {
-        if (modelsMap == null) return emptyList()
         val out = mutableListOf<AvailableModelInfo>()
         val seen = HashSet<String>()
-        for (k in orderedIds) {
-            if (k.isBlank() || !seen.add(k)) continue
-            val mObj = modelsMap.optJSONObject(k) ?: continue
-            val title = modelTitle(mObj, k)
-            if (!AgyModelsService.isRealAiModel(k, title)) continue
-            val tag = mObj.optString("tagTitle", "")
-            val prov = modelProviderName(mObj)
-            val isArgon = isArgonModel(k, title)
-            val qi = mObj.optJSONObject("quotaInfo")
-            val rem = if (qi != null && qi.has("remainingFraction")) qi.optDouble("remainingFraction")
-                else if (isArgon) argonFraction
+        if (modelsMap != null) {
+            for (k in orderedIds) {
+                if (k.isBlank() || !seen.add(k)) continue
+                val mObj = modelsMap.optJSONObject(k) ?: continue
+                val title = modelTitle(mObj, k)
+                if (!AgyModelsService.isRealAiModel(k, title)) continue
+                val tag = mObj.optString("tagTitle", "")
+                val prov = modelProviderName(mObj)
+                val isArgon = isArgonModel(k, title)
+                val qi = mObj.optJSONObject("quotaInfo")
+                val qiReset = qi?.optString("resetTime")?.takeIf { it.isNotBlank() }
+                val rem = if (qi != null && qi.has("remainingFraction")) qi.optDouble("remainingFraction")
+                    else if (qi != null && qiReset != null) 0.0
+                    else if (isArgon) argonFraction
+                    else if (prov == "Google") geminiFraction
+                    else thirdPartyFraction
+                val resetT = qiReset
+                    ?: if (isArgon) argonReset
+                    else if (prov == "Google") geminiReset
+                    else thirdPartyReset
+                out.add(
+                    AvailableModelInfo(
+                        modelId = k,
+                        displayName = title,
+                        provider = prov,
+                        remainingFraction = rem,
+                        resetTime = resetT,
+                        availability = if (tag.equals("Unavailable", ignoreCase = true)) ModelAvailability.UNAVAILABLE else ModelAvailability.AVAILABLE
+                    )
+                )
+            }
+        }
+        for (cli in cliModels) {
+            if (cli.cliId.isBlank() || !seen.add(cli.cliId)) continue
+            if (!AgyModelsService.isRealAiModel(cli.cliId, cli.displayName)) continue
+            val prov = cli.provider.ifBlank { AgyModelsService.providerForDisplayName(cli.displayName).ifBlank { "Google" } }
+            val isArgon = isArgonModel(cli.cliId, cli.displayName)
+            val rem = if (isArgon) argonFraction
                 else if (prov == "Google") geminiFraction
                 else thirdPartyFraction
-            val resetT = qi?.optString("resetTime")?.takeIf { it.isNotBlank() }
-                ?: if (isArgon) argonReset
+            val resetT = if (isArgon) argonReset
                 else if (prov == "Google") geminiReset
                 else thirdPartyReset
             out.add(
                 AvailableModelInfo(
-                    modelId = k,
-                    displayName = title,
+                    modelId = cli.cliId,
+                    displayName = cli.label.ifBlank { cli.displayName },
                     provider = prov,
                     remainingFraction = rem,
                     resetTime = resetT,
-                    availability = if (tag.equals("Unavailable", ignoreCase = true)) ModelAvailability.UNAVAILABLE else ModelAvailability.AVAILABLE
+                    availability = ModelAvailability.AVAILABLE
                 )
             )
         }
@@ -426,6 +473,12 @@ object CloudCodeQuotaService {
             val modelsMap = modelsRespObj?.optJSONObject("models")
             val orderedIds = if (modelsRespObj != null) orderedModelIds(modelsRespObj, modelsMap) else emptyList()
 
+            val decodedCliModels = context?.let { ctx ->
+                val prefsJson = ctx.getSharedPreferences("antigravity_prefs", Context.MODE_PRIVATE)
+                    .getString("ag_cli_models_json", null).orEmpty()
+                AgyModelsService.decodeCliModels(prefsJson)
+            } ?: emptyList()
+
             val groupsList = mutableListOf<QuotaGroup>()
             var geminiWeeklyRem: Double? = null
             var gemini5hRem: Double? = null
@@ -446,11 +499,11 @@ object CloudCodeQuotaService {
                     val is3p = gName.contains("claude", ignoreCase = true) || gName.contains("gpt", ignoreCase = true)
 
                     val groupSharedModels = if (isArgon) {
-                        argonModelTitles(orderedIds, modelsMap)
+                        argonModelTitles(orderedIds, modelsMap, decodedCliModels)
                     } else if (isGemini) {
-                        sharedModelTitles(orderedIds, modelsMap, googleGroup = true)
+                        sharedModelTitles(orderedIds, modelsMap, googleGroup = true, decodedCliModels)
                     } else if (is3p) {
-                        sharedModelTitles(orderedIds, modelsMap, googleGroup = false)
+                        sharedModelTitles(orderedIds, modelsMap, googleGroup = false, decodedCliModels)
                     } else {
                         emptyList()
                     }
@@ -458,38 +511,59 @@ object CloudCodeQuotaService {
                     val bucketsList = mutableListOf<QuotaBucket>()
                     if (gObj.has("buckets")) {
                         val bArr = gObj.getJSONArray("buckets")
+                        val hasNon5hBucket = (0 until bArr.length()).any { idx ->
+                            val candidate = bArr.optJSONObject(idx) ?: return@any false
+                            val cWin = candidate.optString("window", "")
+                            val cId = candidate.optString("bucketId", "")
+                            val cName = candidate.optString("displayName", "")
+                            !(cWin.equals("5h", ignoreCase = true) ||
+                                    cId.contains("5h", ignoreCase = true) ||
+                                    cName.contains("5h", ignoreCase = true) ||
+                                    cName.contains("Five Hour", ignoreCase = true))
+                        }
                         for (j in 0 until bArr.length()) {
                             val bObj = bArr.getJSONObject(j)
                             val bId = bObj.optString("bucketId", "bucket-$j")
                             val bName = bObj.optString("displayName", "Limit Remaining")
                             val bWin = bObj.optString("window", "")
-                            val bReset = if (bObj.has("resetTime")) bObj.optString("resetTime") else null
+                            val bReset = if (bObj.has("resetTime")) bObj.optString("resetTime").takeIf { it.isNotBlank() } else null
                             val bDesc = bObj.optString("description", "")
                             val bRem = bObj.optDouble("remainingFraction", 0.0)
                             val bDis = bObj.optBoolean("disabled", false)
                             val bSub = formatSubtext(bReset)
 
+                            val is5h = bWin.equals("5h", ignoreCase = true) ||
+                                    bId.contains("5h", ignoreCase = true) ||
+                                    bName.contains("5h", ignoreCase = true) ||
+                                    bName.contains("Five Hour", ignoreCase = true)
+                            val isWeekly = bWin.equals("weekly", ignoreCase = true) ||
+                                    bWin.contains("weekly", ignoreCase = true) ||
+                                    bWin.equals("7d", ignoreCase = true) ||
+                                    bWin.equals("168h", ignoreCase = true) ||
+                                    bId.contains("weekly", ignoreCase = true) ||
+                                    bName.contains("weekly", ignoreCase = true)
+
                             val isBucketArgon = isArgon || bId.contains("argon", ignoreCase = true) || bName.contains("argon", ignoreCase = true)
                             if (isBucketArgon) {
-                                if (bWin == "5h" || bId.contains("5h") || bName.contains("5h", ignoreCase = true) || bName.contains("Five Hour", ignoreCase = true)) {
+                                if (is5h && hasNon5hBucket) {
                                     continue
                                 }
-                                if (bWin == "weekly" || bId.contains("weekly") || bWin.isBlank()) {
+                                if (isWeekly || bWin.isBlank() || !is5h || !hasNon5hBucket) {
                                     argonWeeklyRem = bRem
-                                    argonWeeklyReset = bReset
+                                    if (bReset != null) argonWeeklyReset = bReset
                                 }
                             } else if (isGemini) {
-                                if (bWin == "weekly" || bId.contains("weekly")) {
+                                if (isWeekly) {
                                     geminiWeeklyRem = bRem
-                                    geminiWeeklyReset = bReset
-                                } else if (bWin == "5h" || bId.contains("5h")) {
+                                    if (bReset != null) geminiWeeklyReset = bReset
+                                } else if (is5h) {
                                     gemini5hRem = bRem
-                                    gemini5hReset = bReset
+                                    if (bReset != null) gemini5hReset = bReset
                                 }
                             } else if (is3p) {
-                                if (bWin == "weekly" || bId.contains("weekly")) {
+                                if (isWeekly || bWin.isBlank()) {
                                     thirdPartyWeeklyRem = bRem
-                                    thirdPartyWeeklyReset = bReset
+                                    if (bReset != null) thirdPartyWeeklyReset = bReset
                                 }
                             }
 
@@ -497,7 +571,7 @@ object CloudCodeQuotaService {
                                 QuotaBucket(
                                     bucketId = bId,
                                     displayName = bName,
-                                    window = bWin,
+                                    window = if (isBucketArgon && !isWeekly) "weekly" else bWin,
                                     resetTime = bReset,
                                     description = bDesc,
                                     remainingFraction = bRem,
@@ -531,8 +605,12 @@ object CloudCodeQuotaService {
                         val isArgon = isArgonModel(mid, modelTitle(mObj, mid))
                         val qi = mObj.optJSONObject("quotaInfo")
                         if (qi != null) {
-                            val rem = if (qi.has("remainingFraction")) qi.optDouble("remainingFraction") else null
                             val rt = if (qi.has("resetTime")) qi.optString("resetTime").takeIf { it.isNotBlank() } else null
+                            val rem = when {
+                                qi.has("remainingFraction") -> qi.optDouble("remainingFraction")
+                                rt != null -> 0.0
+                                else -> null
+                            }
                             if (isArgon) {
                                 if (rem != null && (argonWeeklyRem == null || rem < argonWeeklyRem!!)) {
                                     argonWeeklyRem = rem
@@ -555,12 +633,12 @@ object CloudCodeQuotaService {
 
             val hasGeminiGroup = groupsList.any { it.displayName.contains("gemini", ignoreCase = true) && !it.displayName.contains("argon", ignoreCase = true) }
             if (!hasGeminiGroup) {
-                val googleShared = sharedModelTitles(orderedIds, modelsMap, googleGroup = true)
-                if (googleShared.isNotEmpty() && (gemini5hRem != null || geminiWeeklyRem != null)) {
+                val googleShared = sharedModelTitles(orderedIds, modelsMap, googleGroup = true, decodedCliModels)
+                if (googleShared.isNotEmpty() && (gemini5hRem != null || geminiWeeklyRem != null || gemini5hReset != null || geminiWeeklyReset != null)) {
                     val fiveHourFraction = gemini5hRem ?: geminiWeeklyRem ?: 0.0
                     val fiveHourReset = gemini5hReset
                     val weeklyFraction = geminiWeeklyRem ?: fiveHourFraction
-                    val weeklyReset = geminiWeeklyReset
+                    val weeklyReset = geminiWeeklyReset ?: fiveHourReset
 
                     val buckets = mutableListOf<QuotaBucket>()
                     buckets.add(
@@ -606,51 +684,66 @@ object CloudCodeQuotaService {
                 }
             }
 
-            val cliArgonTitles = context?.let { ctx ->
-                val prefsJson = ctx.getSharedPreferences("antigravity_prefs", Context.MODE_PRIVATE)
-                    .getString("ag_cli_models_json", null).orEmpty()
-                val decoded = AgyModelsService.decodeCliModels(prefsJson)
-                decoded.filter { isArgonModel(it.cliId, it.displayName) }.map { it.displayName }
-            } ?: emptyList()
+            val cliArgonTitles = decodedCliModels
+                .filter { isArgonModel(it.cliId, it.displayName) }
+                .map { it.displayName.replace(EFFORT_TITLE_REGEX, "").trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
 
             val hasArgonGroup = groupsList.any { it.displayName.contains("argon", ignoreCase = true) }
-            val argonShared = argonModelTitles(orderedIds, modelsMap)
+            val argonShared = argonModelTitles(orderedIds, modelsMap, decodedCliModels)
             val isArgonSupported = hasArgonGroup || argonShared.isNotEmpty() || cliArgonTitles.isNotEmpty()
+
+            val resolvedArgonReset = argonWeeklyReset ?: geminiWeeklyReset
+            val resolvedArgonRem = argonWeeklyRem
+                ?: (if (argonWeeklyReset != null) 0.0 else null)
+                ?: geminiWeeklyRem
 
             if (!isArgonSupported) {
                 groupsList.removeAll { it.displayName.contains("argon", ignoreCase = true) }
-            } else if (!hasArgonGroup && (argonShared.isNotEmpty() || cliArgonTitles.isNotEmpty()) && argonWeeklyRem != null) {
-                val aWeeklyFraction = argonWeeklyRem
-                val aWeeklyReset = argonWeeklyReset
+            } else if (resolvedArgonRem != null) {
+                val argonTitlesList = argonShared.ifEmpty { cliArgonTitles }.ifEmpty { listOf("Gemini 4 Argon") }
+                val rawGroupTitle = argonTitlesList.firstOrNull() ?: "Gemini 4 Argon"
+                val displayName = if (rawGroupTitle.contains("argon", ignoreCase = true)) rawGroupTitle else "Gemini 4 Argon"
+                val aWeeklyFraction = resolvedArgonRem
+                val aWeeklyReset = resolvedArgonReset
 
-                val aBuckets = mutableListOf<QuotaBucket>()
-                aBuckets.add(
-                    QuotaBucket(
-                        bucketId = "argon-weekly",
-                        displayName = "Weekly Limit Remaining",
-                        window = "weekly",
-                        resetTime = aWeeklyReset,
-                        description = if (!aWeeklyReset.isNullOrBlank()) {
-                            "You have used some of your Gemini 4 Argon limit, it will fully refresh in ${formatResetCountdown(aWeeklyReset)}."
-                        } else {
-                            "Individual Gemini 4 Argon weekly quota."
-                        },
-                        remainingFraction = aWeeklyFraction,
-                        disabled = false,
-                        subtext = formatSubtext(aWeeklyReset)
+                val defaultArgonBucket = QuotaBucket(
+                    bucketId = "argon-weekly",
+                    displayName = "Weekly Limit Remaining",
+                    window = "weekly",
+                    resetTime = aWeeklyReset,
+                    description = if (!aWeeklyReset.isNullOrBlank()) {
+                        "You have used some of your Gemini 4 Argon limit, it will fully refresh in ${formatResetCountdown(aWeeklyReset)}."
+                    } else {
+                        "Individual Gemini 4 Argon weekly quota."
+                    },
+                    remainingFraction = aWeeklyFraction,
+                    disabled = false,
+                    subtext = formatSubtext(aWeeklyReset)
+                )
+
+                if (!hasArgonGroup) {
+                    val argonGroup = QuotaGroup(
+                        displayName = displayName,
+                        description = "Models within this group: ${argonTitlesList.joinToString(", ")}",
+                        sharedModels = argonTitlesList,
+                        buckets = listOf(defaultArgonBucket)
                     )
-                )
-
-                val argonTitlesList = argonShared.ifEmpty { cliArgonTitles }
-                val displayName = argonTitlesList.firstOrNull() ?: "Gemini 4 Argon"
-                val argonGroup = QuotaGroup(
-                    displayName = displayName,
-                    description = "Models within this group: ${argonTitlesList.joinToString(", ")}",
-                    sharedModels = argonTitlesList,
-                    buckets = aBuckets
-                )
-                val insertIdx = if (groupsList.isNotEmpty()) 1.coerceAtMost(groupsList.size) else 0
-                groupsList.add(insertIdx, argonGroup)
+                    val insertIdx = if (groupsList.isNotEmpty()) 1.coerceAtMost(groupsList.size) else 0
+                    groupsList.add(insertIdx, argonGroup)
+                } else {
+                    for (idx in groupsList.indices) {
+                        val g = groupsList[idx]
+                        if (g.displayName.contains("argon", ignoreCase = true) && g.buckets.isEmpty()) {
+                            groupsList[idx] = g.copy(
+                                sharedModels = g.sharedModels.ifEmpty { argonTitlesList },
+                                description = g.description?.ifBlank { null } ?: "Models within this group: ${argonTitlesList.joinToString(", ")}",
+                                buckets = listOf(defaultArgonBucket)
+                            )
+                        }
+                    }
+                }
             }
 
             val pickerModels: List<CliModel> = if (modelsMap != null) {
@@ -664,9 +757,10 @@ object CloudCodeQuotaService {
 
             val availableModels = buildAvailableModels(
                 orderedIds, modelsMap,
+                decodedCliModels,
                 gemini5hRem ?: geminiWeeklyRem, gemini5hReset ?: geminiWeeklyReset,
-                if (!isArgonSupported) null else argonWeeklyRem,
-                if (!isArgonSupported) null else argonWeeklyReset,
+                if (!isArgonSupported) null else resolvedArgonRem,
+                if (!isArgonSupported) null else resolvedArgonReset,
                 thirdPartyWeeklyRem, thirdPartyWeeklyReset
             )
 
@@ -858,45 +952,11 @@ object CloudCodeQuotaService {
 
         if (!token.isNullOrBlank()) {
             try {
-
                 val modelsRespStr = makePostRequest(MODELS_URL, token)
-                var geminiRemainingFraction: Double? = null
-                var geminiResetTime: String? = null
-
-                if (modelsRespStr != null) {
-                    val modelsJson = JSONObject(modelsRespStr)
-                    if (modelsJson.has("models")) {
-                        val mObjMap = modelsJson.getJSONObject("models")
-                        val keys = mObjMap.keys()
-                        while (keys.hasNext()) {
-                            val mid = keys.next()
-                            val mObj = mObjMap.getJSONObject(mid)
-                            val providerRaw = mObj.optString("modelProvider", "")
-                            if (providerRaw == "MODEL_PROVIDER_GOOGLE" && mObj.has("quotaInfo")) {
-                                val qi = mObj.getJSONObject("quotaInfo")
-                                val isArgon = isArgonModel(mid)
-                                val isTarget = !isArgon && AgyModelsService.isRealAiModel(mid, modelTitle(mObj, mid))
-                                if (isTarget) {
-                                    val rem = if (qi.has("remainingFraction")) qi.optDouble("remainingFraction") else 0.0
-                                    if (geminiRemainingFraction == null || rem < geminiRemainingFraction!!) {
-                                        geminiRemainingFraction = rem
-                                    }
-                                    if (qi.has("resetTime")) {
-                                        val rt = qi.optString("resetTime").takeIf { it.isNotBlank() }
-                                        if (rt != null && geminiResetTime == null) {
-                                            geminiResetTime = rt
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
                 val quotaRespStr = makePostRequest(QUOTA_URL, token)
-                if (quotaRespStr != null) {
+                if (quotaRespStr != null || modelsRespStr != null) {
                     val summary = parseQuotaSummaryResponse(
-                        respStr = quotaRespStr,
+                        respStr = quotaRespStr ?: "{}",
                         modelsRespStr = modelsRespStr,
                         tier = tier,
                         modelsFetchFailed = modelsRespStr == null,

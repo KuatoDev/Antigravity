@@ -3,6 +3,7 @@ package id.vern.antigravity.install
 import android.content.Context
 import android.system.Os
 import android.util.Log
+import id.vern.antigravity.util.NetworkDownloader
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -67,15 +68,10 @@ object CoreUpdateManager {
 
     fun checkForUpdate(context: Context): CoreUpdateInfo {
         val currentVer = getCurrentVersion(context)
-        val url = URL(MANIFEST_URL)
-        val conn = (url.openConnection() as HttpURLConnection).apply {
-            connectTimeout = 10000
-            readTimeout = 15000
-            requestMethod = "GET"
-            setRequestProperty("User-Agent", "Antigravity-Android/2.0")
+        val (code, jsonStr) = NetworkDownloader.httpGetString(MANIFEST_URL, connectTimeout = 10000, readTimeout = 15000)
+        if (code !in 200..299 || jsonStr.isNullOrBlank()) {
+            return CoreUpdateInfo(currentVer, "", "", currentVer, false)
         }
-
-        val jsonStr = conn.inputStream.bufferedReader().use { it.readText() }
         val json = JSONObject(jsonStr)
         val remoteVer = json.getString("version")
         val downloadUrl = json.getString("url")
@@ -132,98 +128,23 @@ object CoreUpdateManager {
                 attempt++
                 try {
                     onProgress(0.05f, "Connecting to update server (attempt $attempt/$maxAttempts)...")
-                    var currentUrl = updateInfo.url
-                    var redirectCount = 0
-                    val maxRedirects = 10
-                    var conn: HttpURLConnection? = null
-                    val existingSize = if (tarGzFile.exists()) tarGzFile.length() else 0L
-
-                    while (redirectCount < maxRedirects) {
-                        val u = URL(currentUrl)
-                        conn = (u.openConnection() as HttpURLConnection).apply {
-                            connectTimeout = 30000
-                            readTimeout = 60000
-                            requestMethod = "GET"
-                            instanceFollowRedirects = true
-                            setRequestProperty("User-Agent", "Antigravity-Android/2.0")
-                            if (existingSize > 0L) {
-                                setRequestProperty("Range", "bytes=$existingSize-")
-                            }
-                        }
-
-                        val code = conn.responseCode
-                        if (code in 300..399) {
-                            val location = conn.getHeaderField("Location")
-                            conn.disconnect()
-                            if (!location.isNullOrBlank()) {
-                                currentUrl = if (location.startsWith("http://") || location.startsWith("https://")) {
-                                    location
-                                } else {
-                                    URL(u, location).toString()
-                                }
-                                redirectCount++
-                                continue
-                            }
-                        }
-                        break
-                    }
-
-                    val finalConn = conn ?: throw IllegalStateException("Failed connecting to ${updateInfo.url}")
-                    val responseCode = finalConn.responseCode
-                    val appendMode: Boolean
-                    val totalBytes: Long
-
-                    when (responseCode) {
-                        HttpURLConnection.HTTP_PARTIAL -> {
-                            appendMode = true
-                            val contentRange = finalConn.getHeaderField("Content-Range")
-                            val fullSize = contentRange?.substringAfterLast('/')?.toLongOrNull()
-                            val chunkLength = finalConn.contentLengthLong
-                            totalBytes = fullSize ?: if (chunkLength > 0) existingSize + chunkLength else -1L
-                        }
-                        HttpURLConnection.HTTP_OK -> {
-                            appendMode = false
-                            totalBytes = finalConn.contentLengthLong
-                        }
-                        416 -> {
-                            finalConn.disconnect()
-                            if (tarGzFile.length() > 0) {
-                                downloadSucceeded = true
-                                break
-                            }
-                            tarGzFile.delete()
-                            continue
-                        }
-                        else -> {
-                            finalConn.disconnect()
-                            throw IOException("HTTP request failed with status code $responseCode")
-                        }
-                    }
-
                     onProgress(0.10f, "Downloading Core Engine (${updateInfo.version})...")
-                    finalConn.inputStream.use { input ->
-                        FileOutputStream(tarGzFile, appendMode).use { output ->
-                            val buffer = ByteArray(65536)
-                            var read: Int
-                            var totalRead = if (appendMode) existingSize else 0L
-                            var lastReport = System.currentTimeMillis()
-
-                            while (input.read(buffer).also { read = it } != -1) {
-                                output.write(buffer, 0, read)
-                                totalRead += read
-                                val now = System.currentTimeMillis()
-                                if (now - lastReport > 250 && totalBytes > 0) {
-                                    lastReport = now
-                                    val progress = 0.10f + 0.55f * (totalRead.toFloat() / totalBytes)
-                                    val mbRead = totalRead / (1024 * 1024)
-                                    val mbTotal = totalBytes / (1024 * 1024)
-                                    onProgress(progress, "Downloading: $mbRead MB / $mbTotal MB")
-                                }
+                    var lastReport = System.currentTimeMillis()
+                    downloadSucceeded = NetworkDownloader.downloadWithResume(
+                        url = updateInfo.url,
+                        dest = tarGzFile,
+                        maxAttempts = 1,
+                        onProgress = { totalRead, totalBytes ->
+                            val now = System.currentTimeMillis()
+                            if (now - lastReport > 250 && totalBytes > 0) {
+                                lastReport = now
+                                val progress = 0.10f + 0.55f * (totalRead.toFloat() / totalBytes)
+                                val mbRead = totalRead / (1024 * 1024)
+                                val mbTotal = totalBytes / (1024 * 1024)
+                                onProgress(progress, "Downloading: $mbRead MB / $mbTotal MB")
                             }
-                            output.flush()
                         }
-                    }
-                    downloadSucceeded = true
+                    )
                 } catch (e: Exception) {
                     lastDownloadError = e
                     Log.w(TAG, "Core Engine download attempt $attempt/$maxAttempts failed: ${e.message}", e)

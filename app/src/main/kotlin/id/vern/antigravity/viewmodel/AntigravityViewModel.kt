@@ -26,6 +26,8 @@ import id.vern.antigravity.data.AgentExecutionStep
 import id.vern.antigravity.data.AgentStepKind
 import id.vern.antigravity.data.ChangedFileDetail
 import id.vern.antigravity.data.ChangedFileItem
+import id.vern.antigravity.data.OpenTab
+import id.vern.antigravity.data.ArtifactFileItem
 import id.vern.antigravity.data.TurnFileChanges
 import id.vern.antigravity.data.EngineStatus
 import id.vern.antigravity.data.ExecutionLogEntry
@@ -53,8 +55,8 @@ import id.vern.antigravity.service.RuleItem
 import id.vern.antigravity.service.McpConfigService
 import id.vern.antigravity.service.McpServerItem
 import id.vern.antigravity.service.WakeLockHolder
-import id.vern.antigravity.ui.components.TerminalLine
-import id.vern.antigravity.ui.components.TerminalSessionManager
+import id.vern.antigravity.service.TerminalLine
+import id.vern.antigravity.service.TerminalSessionManager
 import id.vern.antigravity.executor.EngineExecutor
 import id.vern.antigravity.install.BootstrapInstaller
 import id.vern.antigravity.install.CoreUpdateManager
@@ -165,57 +167,107 @@ data class TokenUsageStats(
 class AntigravityViewModel : ViewModel() {
 
     companion object {
-        private const val PREFS_NAME = "antigravity_prefs"
-        private const val KEY_THEME_MODE = "ag_theme_mode"
-        private const val KEY_ACCENT_COLOR = "ag_accent_color"
-        private const val KEY_WORKSPACE_PATH = "ag_workspace_path"
-        private const val KEY_SELECTED_MODEL = "ag_selected_model"
-        private const val KEY_SELECTED_MODEL_CLI_ID = "ag_selected_model_cli_id"
-        private const val KEY_CLI_MODELS_JSON = "ag_cli_models_json"
-        private const val KEY_CLI_MODELS_FETCHED_AT = "ag_cli_models_fetched_at"
-        private const val KEY_CLI_SLASH_COMMANDS = "ag_cli_slash_commands"
-        private const val KEY_CLI_SLASH_VERSION = "ag_cli_slash_version"
-        private const val KEY_CLI_SLASH_FETCHED_AT = "ag_cli_slash_fetched_at"
-        private const val CLI_MODELS_THROTTLE_MS = 10L * 60L * 1000L
-        private const val KEY_THINKING_BUDGET = "ag_thinking_budget"
-        private const val KEY_VERBOSE_THINKING = "ag_verbose_thinking"
-        private const val KEY_CONVERSATION_WIDTH = "ag_conversation_width"
-        private const val KEY_THEME_PRESET = "ag_theme_preset"
-        private const val KEY_CUSTOM_THEME_BG = "ag_custom_theme_bg"
-        private const val KEY_CUSTOM_THEME_FG = "ag_custom_theme_fg"
-        private const val KEY_CUSTOM_THEME_ACCENT = "ag_custom_theme_accent"
-        private const val KEY_EDITOR_WORD_WRAP = "ag_editor_word_wrap"
-        private const val KEY_EDITOR_LINE_NUMBERS = "ag_editor_line_numbers"
-        private const val KEY_EDITOR_FONT_SIZE = "ag_editor_font_size"
-        private const val KEY_SKIP_PERMISSIONS = "ag_skip_permissions"
-        private const val KEY_PROJECT_SORT = "ag_project_sort"
-        private const val KEY_QUEUED_MESSAGES_MODE = "ag_queued_messages_mode"
-        private const val KEY_SECURITY_PRESET = "ag_security_preset"
-        private const val KEY_PLAN_REVIEW_POLICY = "ag_plan_review_policy"
-        private const val KEY_BROWSER_JS_POLICY = "ag_browser_js_policy"
-        private const val KEY_ENABLE_CREDIT_OVERAGES = "ag_enable_credit_overages"
-        private const val KEY_USER_PROJECTS = "ag_user_projects"
-        private const val KEY_CONVERSATION_HISTORY = "ag_conversation_history"
-        private const val KEY_LAST_ACTIVE_CONV_ID = "ag_last_active_conv_id"
-        private const val KEY_CUSTOMIZATION_TRACKING = "ag_customization_tracking"
-        private const val KEY_CUSTOMIZATION_LAST_CHECK = "ag_customization_last_check"
+        const val PREFS_NAME = "antigravity_prefs"
+        const val KEY_THEME_MODE = "ag_theme_mode"
+        const val KEY_ACCENT_COLOR = "ag_accent_color"
+        const val KEY_WORKSPACE_PATH = "ag_workspace_path"
+        const val KEY_SELECTED_MODEL = "ag_selected_model"
+        const val KEY_SELECTED_MODEL_CLI_ID = "ag_selected_model_cli_id"
+        const val KEY_CLI_MODELS_JSON = "ag_cli_models_json"
+        const val KEY_CLI_MODELS_FETCHED_AT = "ag_cli_models_fetched_at"
+        const val KEY_CLI_SLASH_COMMANDS = "ag_cli_slash_commands"
+        const val KEY_CLI_SLASH_VERSION = "ag_cli_slash_version"
+        const val KEY_CLI_SLASH_FETCHED_AT = "ag_cli_slash_fetched_at"
+        const val CLI_MODELS_THROTTLE_MS = 10L * 60L * 1000L
+        const val KEY_THINKING_BUDGET = "ag_thinking_budget"
+        const val KEY_VERBOSE_THINKING = "ag_verbose_thinking"
+        const val KEY_CONVERSATION_WIDTH = "ag_conversation_width"
+        const val KEY_THEME_PRESET = "ag_theme_preset"
+        const val KEY_CUSTOM_THEME_BG = "ag_custom_theme_bg"
+        const val KEY_CUSTOM_THEME_FG = "ag_custom_theme_fg"
+        const val KEY_CUSTOM_THEME_ACCENT = "ag_custom_theme_accent"
+        const val KEY_EDITOR_WORD_WRAP = "ag_editor_word_wrap"
+        const val KEY_EDITOR_LINE_NUMBERS = "ag_editor_line_numbers"
+        const val KEY_EDITOR_FONT_SIZE = "ag_editor_font_size"
+        const val KEY_SKIP_PERMISSIONS = "ag_skip_permissions"
+        const val KEY_PROJECT_SORT = "ag_project_sort"
+        const val KEY_QUEUED_MESSAGES_MODE = "ag_queued_messages_mode"
+        const val KEY_SECURITY_PRESET = "ag_security_preset"
+        const val KEY_PLAN_REVIEW_POLICY = "ag_plan_review_policy"
+        const val KEY_BROWSER_JS_POLICY = "ag_browser_js_policy"
+        const val KEY_ENABLE_CREDIT_OVERAGES = "ag_enable_credit_overages"
+        const val KEY_USER_PROJECTS = "ag_user_projects"
+        const val KEY_CONVERSATION_HISTORY = "ag_conversation_history"
+        const val KEY_LAST_ACTIVE_CONV_ID = "ag_last_active_conv_id"
+        const val KEY_CUSTOMIZATION_TRACKING = "ag_customization_tracking"
+        const val KEY_CUSTOMIZATION_LAST_CHECK = "ag_customization_last_check"
     }
+
+    private val projectWorkspaceDelegate = ProjectWorkspaceDelegate()
+    private val conversationManagerDelegate = ConversationManagerDelegate()
+    private val authDelegate = AuthDelegate()
+    private val settingsPreferencesDelegate = SettingsPreferencesDelegate()
+    private val customizationInstallerDelegate = CustomizationInstallerDelegate()
+    private val customizationCatalogueDelegate = CustomizationCatalogueDelegate()
 
     private val mutableChatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val chatMessages: StateFlow<List<ChatMessage>> = mutableChatMessages.asStateFlow()
 
-    private val mutableConversationTitle = MutableStateFlow("New Conversation")
-    val conversationTitle: StateFlow<String> = mutableConversationTitle.asStateFlow()
+    val conversationTitle: StateFlow<String> = conversationManagerDelegate.conversationTitle
+    val activeConversationId: StateFlow<String?> = conversationManagerDelegate.activeConversationId
+    val isConversationPinned: StateFlow<Boolean> = conversationManagerDelegate.isConversationPinned
+    val conversationHistory: StateFlow<List<ConversationSummary>> = conversationManagerDelegate.conversationHistory
 
-    private val mutableActiveConversationId = MutableStateFlow<String?>(null)
-    val activeConversationId: StateFlow<String?> = mutableActiveConversationId.asStateFlow()
+    val appearanceConfig: StateFlow<AppearanceConfig> = settingsPreferencesDelegate.appearanceConfig
+    val workspacePath: StateFlow<String> = projectWorkspaceDelegate.workspacePath
+    val selectedModel: StateFlow<String> = settingsPreferencesDelegate.selectedModel
+    val selectedModelCliId: StateFlow<String?> = settingsPreferencesDelegate.selectedModelCliId
+    val thinkingBudget: StateFlow<String> = settingsPreferencesDelegate.thinkingBudget
+    val verboseThinking: StateFlow<Boolean> = settingsPreferencesDelegate.verboseThinking
+    val conversationWidth: StateFlow<String> = settingsPreferencesDelegate.conversationWidth
+    val themePreset: StateFlow<String> = settingsPreferencesDelegate.themePreset
+    val customThemeBg: StateFlow<String> = settingsPreferencesDelegate.customThemeBg
+    val customThemeFg: StateFlow<String> = settingsPreferencesDelegate.customThemeFg
+    val customThemeAccent: StateFlow<String> = settingsPreferencesDelegate.customThemeAccent
+    val editorWordWrap: StateFlow<Boolean> = settingsPreferencesDelegate.editorWordWrap
+    val editorLineNumbers: StateFlow<Boolean> = settingsPreferencesDelegate.editorLineNumbers
+    val editorFontSize: StateFlow<Int> = settingsPreferencesDelegate.editorFontSize
+    val skipPermissions: StateFlow<Boolean> = settingsPreferencesDelegate.skipPermissions
+    val queuedMessagesMode: StateFlow<String> = settingsPreferencesDelegate.queuedMessagesMode
+    val securityPreset: StateFlow<String> = settingsPreferencesDelegate.securityPreset
+    val planReviewPolicy: StateFlow<String> = settingsPreferencesDelegate.planReviewPolicy
+    val browserJsPolicy: StateFlow<String> = settingsPreferencesDelegate.browserJsPolicy
+    val enableCreditOverages: StateFlow<Boolean> = settingsPreferencesDelegate.enableCreditOverages
+    val permissionState: StateFlow<PermissionGrantsState> = settingsPreferencesDelegate.permissionState
+    val installedRulesList: StateFlow<List<RuleItem>> = settingsPreferencesDelegate.installedRulesList
+    val mcpServers: StateFlow<List<McpServerItem>> = settingsPreferencesDelegate.mcpServers
 
-    private val mutableIsConversationPinned = MutableStateFlow(false)
-    val isConversationPinned: StateFlow<Boolean> = mutableIsConversationPinned.asStateFlow()
+    val isAuthenticating: StateFlow<Boolean> = authDelegate.isAuthenticating
+    val authError: StateFlow<String?> = authDelegate.authError
+    val showGoogleSignInDialog: StateFlow<Boolean> = authDelegate.showGoogleSignInDialog
+    val pendingAuthUrl: StateFlow<String?> = authDelegate.pendingAuthUrl
+    val userEmail: StateFlow<String?> = authDelegate.userEmail
+    val userName: StateFlow<String> = authDelegate.userName
+    val userPicture: StateFlow<String?> = authDelegate.userPicture
+    val accounts: StateFlow<List<StoredAccount>> = authDelegate.accounts
 
-    private val mutableConversationHistory = MutableStateFlow<List<ConversationSummary>>(emptyList())
-    val conversationHistory: StateFlow<List<ConversationSummary>> = mutableConversationHistory.asStateFlow()
+    val projectList: StateFlow<List<File>> = projectWorkspaceDelegate.projectList
+    val projectSortOrder: StateFlow<ProjectSortOrder> = projectWorkspaceDelegate.projectSortOrder
 
+    val installedSkills: StateFlow<List<CustomizationItem>> = customizationCatalogueDelegate.installedSkills
+    val installedPlugins: StateFlow<List<CustomizationItem>> = customizationCatalogueDelegate.installedPlugins
+    val customizationTracks: StateFlow<Map<String, CustomizationRepoTrack>> = customizationCatalogueDelegate.customizationTracks
+    val isCheckingCustomizationUpdates: StateFlow<Boolean> = customizationCatalogueDelegate.isCheckingCustomizationUpdates
+    val skillsCatalogue: StateFlow<List<SkillCatalogueItem>> = customizationCatalogueDelegate.skillsCatalogue
+    val pluginsCatalogue: StateFlow<List<SkillCatalogueItem>> = customizationCatalogueDelegate.pluginsCatalogue
+    val isFetchingCatalogue: StateFlow<Boolean> = customizationCatalogueDelegate.isFetchingCatalogue
+    val installingItemId: StateFlow<String?> = customizationCatalogueDelegate.installingItemId
+    val tokenUsageStats: StateFlow<TokenUsageStats> = customizationCatalogueDelegate.tokenUsageStats
+
+    val activeInstallProgress: StateFlow<CustomizationInstallProgress?> = customizationInstallerDelegate.activeInstallProgress
+    val isInspectingRepo: StateFlow<Boolean> = customizationInstallerDelegate.isInspectingRepo
+    val discoveredRepoSkills: StateFlow<List<DiscoveredRepoSkill>> = customizationInstallerDelegate.discoveredRepoSkills
+    val repoInspectionError: StateFlow<String?> = customizationInstallerDelegate.repoInspectionError
     private val mutableAttachedFiles = MutableStateFlow<List<AttachedFile>>(emptyList())
     val attachedFiles: StateFlow<List<AttachedFile>> = mutableAttachedFiles.asStateFlow()
 
@@ -239,6 +291,39 @@ class AntigravityViewModel : ViewModel() {
 
     private val mutableExecutionLogs = MutableStateFlow<List<ExecutionLogEntry>>(emptyList())
     val executionLogs: StateFlow<List<ExecutionLogEntry>> = mutableExecutionLogs.asStateFlow()
+
+    private val editorSessionDelegate = EditorSessionDelegate()
+    val openEditorTabs: StateFlow<List<OpenTab>> = editorSessionDelegate.openTabs
+    val activeEditorTabId: StateFlow<String?> = editorSessionDelegate.activeTabId
+
+    fun openFileInEditor(file: File) = editorSessionDelegate.openFile(file)
+    fun closeEditorTab(tabId: String) = editorSessionDelegate.closeTab(tabId)
+    fun selectEditorTab(tabId: String) = editorSessionDelegate.selectTab(tabId)
+    fun updateEditorContent(tabId: String, newContent: String) = editorSessionDelegate.updateContent(tabId, newContent)
+    fun setEditorTabDiffView(tabId: String, isDiff: Boolean) = editorSessionDelegate.setDiffView(tabId, isDiff)
+    fun saveEditorTab(context: Context, tabId: String): Boolean = editorSessionDelegate.saveTab(context, tabId)
+
+    private val artifactManagerDelegate = ArtifactManagerDelegate()
+    val conversationArtifacts: StateFlow<List<ArtifactFileItem>> = artifactManagerDelegate.conversationArtifacts
+
+    fun refreshConversationArtifacts(context: Context) {
+        viewModelScope.launch {
+            artifactManagerDelegate.refreshArtifacts(context, activeConversationId.value)
+        }
+    }
+
+    private val gitStatusDelegate = GitStatusDelegate()
+    val gitChangedFiles: StateFlow<List<ChangedFileItem>> = gitStatusDelegate.changedFiles
+    val gitDiffCache: StateFlow<Map<String, String>> = gitStatusDelegate.diffCache
+    val gitLoadingDiffs: StateFlow<Set<String>> = gitStatusDelegate.loadingDiffs
+
+    suspend fun fetchGitChangedFiles(context: Context, workspacePath: String?): List<ChangedFileItem> =
+        gitStatusDelegate.fetchGitChangedFiles(context, workspacePath)
+
+    suspend fun fetchGitDiff(context: Context, workspacePath: String?, relativePath: String): String =
+        gitStatusDelegate.fetchGitDiff(context, workspacePath, relativePath)
+
+    fun clearGitDiffCache() = gitStatusDelegate.clearDiffCache()
 
     private val convIdToCliSessionId = java.util.concurrent.ConcurrentHashMap<String, String>()
 
@@ -270,30 +355,12 @@ class AntigravityViewModel : ViewModel() {
     private val mutableEngineStatus = MutableStateFlow(EngineStatus())
     val engineStatus: StateFlow<EngineStatus> = mutableEngineStatus.asStateFlow()
 
-    private val mutableAppearanceConfig = MutableStateFlow(AppearanceConfig())
-    val appearanceConfig: StateFlow<AppearanceConfig> = mutableAppearanceConfig.asStateFlow()
-
-    private val mutableWorkspacePath = MutableStateFlow("")
-    val workspacePath: StateFlow<String> = mutableWorkspacePath.asStateFlow()
-
-    private val mutableSelectedModel = MutableStateFlow("")
-    val selectedModel: StateFlow<String> = mutableSelectedModel.asStateFlow()
-
-    private val mutableThinkingBudget = MutableStateFlow("")
-    val thinkingBudget: StateFlow<String> = mutableThinkingBudget.asStateFlow()
-
-    private val mutableVerboseThinking = MutableStateFlow(false)
-    val verboseThinking: StateFlow<Boolean> = mutableVerboseThinking.asStateFlow()
-
     private val mutablePendingInputText = MutableStateFlow<String?>(null)
     val pendingInputText: StateFlow<String?> = mutablePendingInputText.asStateFlow()
 
     fun clearPendingInputText() {
         mutablePendingInputText.value = null
     }
-
-    private val mutableConversationWidth = MutableStateFlow("Default")
-    val conversationWidth: StateFlow<String> = mutableConversationWidth.asStateFlow()
 
     private val mutableIsBooting = MutableStateFlow(true)
     val isBooting: StateFlow<Boolean> = mutableIsBooting.asStateFlow()
@@ -310,12 +377,6 @@ class AntigravityViewModel : ViewModel() {
     private val mutableBootErrorDetail = MutableStateFlow<String?>(null)
     val bootErrorDetail: StateFlow<String?> = mutableBootErrorDetail.asStateFlow()
 
-    private val mutableUserEmail = MutableStateFlow<String?>(null)
-    val userEmail: StateFlow<String?> = mutableUserEmail.asStateFlow()
-
-    private val mutableAccounts = MutableStateFlow<List<StoredAccount>>(emptyList())
-    val accounts: StateFlow<List<StoredAccount>> = mutableAccounts.asStateFlow()
-
     private val mutableUserQuotaSummary = MutableStateFlow<UserQuotaSummary?>(null)
     val userQuotaSummary: StateFlow<UserQuotaSummary?> = mutableUserQuotaSummary.asStateFlow()
 
@@ -331,9 +392,6 @@ class AntigravityViewModel : ViewModel() {
     private val mutableCliModels = MutableStateFlow<List<CliModel>>(emptyList())
     val cliModels: StateFlow<List<CliModel>> = mutableCliModels.asStateFlow()
 
-    private val mutableSelectedModelCliId = MutableStateFlow<String?>(null)
-    val selectedModelCliId: StateFlow<String?> = mutableSelectedModelCliId.asStateFlow()
-
     fun refreshCliModels(context: Context, force: Boolean = false) {
         viewModelScope.launch {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -342,6 +400,15 @@ class AntigravityViewModel : ViewModel() {
             val result = AgyModelsService.fetchCliModels(context, force = force)
             if (result.models.isNotEmpty()) {
                 adoptCliCatalog(context, result.models)
+                val hasArgonInCli = result.models.any { CloudCodeQuotaService.isArgonModel(it.cliId, it.displayName) }
+                val currentGroups = mutableUserQuotaSummary.value?.groups.orEmpty()
+                val hasArgonGroup = currentGroups.any { it.displayName.contains("argon", ignoreCase = true) }
+                if (hasArgonInCli && !hasArgonGroup) {
+                    val refreshedQuota = CloudCodeQuotaService.fetchQuotaSummary(context, mutableCodeAssistTier.value)
+                    if (refreshedQuota != null) {
+                        mutableUserQuotaSummary.value = refreshedQuota
+                    }
+                }
             } else {
                 val quotaFallback = mutableUserQuotaSummary.value?.pickerModels.orEmpty()
                 if (mutableCliModels.value.isEmpty() && quotaFallback.isNotEmpty()) {
@@ -369,24 +436,24 @@ class AntigravityViewModel : ViewModel() {
 
     private fun reconcileSelectionWithCatalog(prefs: android.content.SharedPreferences, catalog: List<CliModel>) {
         if (catalog.isEmpty()) return
-        val currentId = mutableSelectedModelCliId.value
+        val currentId = selectedModelCliId.value
         if (currentId != null && catalog.any { it.cliId == currentId }) return
-        val currentName = mutableSelectedModel.value
+        val currentName = selectedModel.value
         val family = catalog.filter { it.displayName == currentName }
         val adopted = when {
-            family.isNotEmpty() -> family.firstOrNull { it.effort.equals(mutableThinkingBudget.value, ignoreCase = true) }
+            family.isNotEmpty() -> family.firstOrNull { it.effort.equals(thinkingBudget.value, ignoreCase = true) }
                 ?: family.firstOrNull { it.effort.isEmpty() }
                 ?: family.firstOrNull()
             currentName.isBlank() -> defaultCatalogEntry(catalog)
             else -> null
         }
-        mutableSelectedModelCliId.value = adopted?.cliId
+        settingsPreferencesDelegate.setSelectedModelCliIdDirect(adopted?.cliId)
         val editor = prefs.edit()
         if (adopted != null) {
             editor.putString(KEY_SELECTED_MODEL_CLI_ID, adopted.cliId)
             if (currentName.isBlank()) {
-                mutableSelectedModel.value = adopted.displayName
-                mutableThinkingBudget.value = adopted.effort
+                settingsPreferencesDelegate.setSelectedModelDirect(adopted.displayName)
+                settingsPreferencesDelegate.setThinkingBudgetDirect(adopted.effort)
                 editor.putString(KEY_SELECTED_MODEL, adopted.displayName)
                 editor.putString(KEY_THINKING_BUDGET, adopted.effort)
             }
@@ -419,15 +486,15 @@ class AntigravityViewModel : ViewModel() {
                 }
 
                 refreshCliModels(context)
-                val currentSelected = mutableSelectedModel.value
+                val currentSelected = selectedModel.value
 
                 val currentAvailability = quota?.availableModels?.firstOrNull { it.matches(currentSelected) }?.availability ?: ModelAvailability.UNKNOWN
                 if (currentAvailability == ModelAvailability.UNAVAILABLE) {
 
                     val fallback = defaultCatalogEntry()
-                    mutableSelectedModel.value = fallback?.displayName ?: ""
-                    mutableSelectedModelCliId.value = fallback?.cliId
-                    mutableThinkingBudget.value = fallback?.effort ?: ""
+                    settingsPreferencesDelegate.setSelectedModelDirect(fallback?.displayName ?: "")
+                    settingsPreferencesDelegate.setSelectedModelCliIdDirect(fallback?.cliId)
+                    settingsPreferencesDelegate.setThinkingBudgetDirect(fallback?.effort ?: "")
                     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                     val editor = prefs.edit()
                     if (fallback != null) {
@@ -453,7 +520,6 @@ class AntigravityViewModel : ViewModel() {
                 if (quota?.modelsFetchFailed == true || (quota == null && tier == null)) {
                     mutableQuotaErrorMessage.value = context.getString(R.string.quota_models_load_failed)
                 }
-                refreshCliModels(context)
             } catch (e: Exception) {
                 mutableQuotaErrorMessage.value = e.localizedMessage ?: "Network error fetching quota."
             } finally {
@@ -462,162 +528,15 @@ class AntigravityViewModel : ViewModel() {
         }
     }
 
-    private val mutableIsAuthenticating = MutableStateFlow(false)
-    val isAuthenticating: StateFlow<Boolean> = mutableIsAuthenticating.asStateFlow()
-
-    private val mutableAuthError = MutableStateFlow<String?>(null)
-    val authError: StateFlow<String?> = mutableAuthError.asStateFlow()
-
-    private val mutableShowGoogleSignInDialog = MutableStateFlow(false)
-    val showGoogleSignInDialog: StateFlow<Boolean> = mutableShowGoogleSignInDialog.asStateFlow()
-
-    private val mutablePendingAuthUrl = MutableStateFlow<String?>(null)
-    val pendingAuthUrl: StateFlow<String?> = mutablePendingAuthUrl.asStateFlow()
-
     private val mutableShowModelSelector = MutableStateFlow(false)
     val showModelSelector: StateFlow<Boolean> = mutableShowModelSelector.asStateFlow()
 
-    private val mutableInstallingItemId = MutableStateFlow<String?>(null)
-    val installingItemId: StateFlow<String?> = mutableInstallingItemId.asStateFlow()
-
-    private val mutableProjectList = MutableStateFlow<List<File>>(emptyList())
-    val projectList: StateFlow<List<File>> = mutableProjectList.asStateFlow()
-
-    private val mutableProjectSortOrder = MutableStateFlow(ProjectSortOrder.NAME_ASC)
-    val projectSortOrder: StateFlow<ProjectSortOrder> = mutableProjectSortOrder.asStateFlow()
-
-    private val mutableThemePreset = MutableStateFlow("Default Dark")
-    val themePreset: StateFlow<String> = mutableThemePreset.asStateFlow()
-
-    private val mutableCustomThemeBg = MutableStateFlow("#101010")
-    val customThemeBg: StateFlow<String> = mutableCustomThemeBg.asStateFlow()
-
-    private val mutableCustomThemeFg = MutableStateFlow("#CCCCCC")
-    val customThemeFg: StateFlow<String> = mutableCustomThemeFg.asStateFlow()
-
-    private val mutableCustomThemeAccent = MutableStateFlow("#1A73E8")
-    val customThemeAccent: StateFlow<String> = mutableCustomThemeAccent.asStateFlow()
-
-    private val mutableEditorWordWrap = MutableStateFlow(true)
-    val editorWordWrap: StateFlow<Boolean> = mutableEditorWordWrap.asStateFlow()
-
-    private val mutableEditorLineNumbers = MutableStateFlow(true)
-    val editorLineNumbers: StateFlow<Boolean> = mutableEditorLineNumbers.asStateFlow()
-
-    private val mutableEditorFontSize = MutableStateFlow(13)
-    val editorFontSize: StateFlow<Int> = mutableEditorFontSize.asStateFlow()
-
-    private val mutableSkipPermissions = MutableStateFlow(true)
-    val skipPermissions: StateFlow<Boolean> = mutableSkipPermissions.asStateFlow()
-
-    private val mutableUserName = MutableStateFlow("")
-    val userName: StateFlow<String> = mutableUserName.asStateFlow()
-
-    private val mutableUserPicture = MutableStateFlow<String?>(null)
-    val userPicture: StateFlow<String?> = mutableUserPicture.asStateFlow()
-
-    private val mutableQueuedMessagesMode = MutableStateFlow("Queue")
-    val queuedMessagesMode: StateFlow<String> = mutableQueuedMessagesMode.asStateFlow()
-
-    private val mutableSecurityPreset = MutableStateFlow("Turbo Mode")
-    val securityPreset: StateFlow<String> = mutableSecurityPreset.asStateFlow()
-
-    private val mutablePlanReviewPolicy = MutableStateFlow("Always Ask")
-    val planReviewPolicy: StateFlow<String> = mutablePlanReviewPolicy.asStateFlow()
-
-    private val mutableBrowserJsPolicy = MutableStateFlow("Request Review")
-    val browserJsPolicy: StateFlow<String> = mutableBrowserJsPolicy.asStateFlow()
-
-    private val mutableEnableCreditOverages = MutableStateFlow(false)
-    val enableCreditOverages: StateFlow<Boolean> = mutableEnableCreditOverages.asStateFlow()
-
-    private val mutablePermissionState = MutableStateFlow(PermissionGrantsState())
-    val permissionState: StateFlow<PermissionGrantsState> = mutablePermissionState.asStateFlow()
-
     fun loadPreferences(context: Context) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val themeName = prefs.getString(KEY_THEME_MODE, ThemeMode.SYSTEM.name) ?: ThemeMode.SYSTEM.name
-        val themeMode = try { ThemeMode.valueOf(themeName) } catch (e: Exception) { ThemeMode.SYSTEM }
-        val accentName = prefs.getString(KEY_ACCENT_COLOR, AccentColor.BLUE.name) ?: AccentColor.BLUE.name
-        val accentColor = try { AccentColor.valueOf(accentName) } catch (e: Exception) { AccentColor.BLUE }
-        val savedWorkspace = prefs.getString(KEY_WORKSPACE_PATH, null)
-        val savedModel = prefs.getString(KEY_SELECTED_MODEL, "") ?: ""
-
-        val model = savedModel
-        val budget = prefs.getString(KEY_THINKING_BUDGET, "") ?: ""
-        val verbose = prefs.getBoolean(KEY_VERBOSE_THINKING, false)
-        val width = prefs.getString(KEY_CONVERSATION_WIDTH, "Default") ?: "Default"
-        val preset = prefs.getString(KEY_THEME_PRESET, if (themeMode == ThemeMode.LIGHT) "Default Light" else "Default Dark") ?: "Default Dark"
-        val customBg = prefs.getString(KEY_CUSTOM_THEME_BG, "#101010") ?: "#101010"
-        val customFg = prefs.getString(KEY_CUSTOM_THEME_FG, "#CCCCCC") ?: "#CCCCCC"
-        val customAccent = prefs.getString(KEY_CUSTOM_THEME_ACCENT, "#1A73E8") ?: "#1A73E8"
-        val wrap = prefs.getBoolean(KEY_EDITOR_WORD_WRAP, true)
-        val lineNums = prefs.getBoolean(KEY_EDITOR_LINE_NUMBERS, true)
-        val fontSize = prefs.getInt(KEY_EDITOR_FONT_SIZE, 13)
-        val skipPerms = prefs.getBoolean(KEY_SKIP_PERMISSIONS, true)
-        val sortOrderName = prefs.getString(KEY_PROJECT_SORT, ProjectSortOrder.NAME_ASC.name) ?: ProjectSortOrder.NAME_ASC.name
-        val sortOrder = try { ProjectSortOrder.valueOf(sortOrderName) } catch (e: Exception) { ProjectSortOrder.NAME_ASC }
-        val queued = prefs.getString(KEY_QUEUED_MESSAGES_MODE, "Queue") ?: "Queue"
-        val secPreset = prefs.getString(KEY_SECURITY_PRESET, "Turbo Mode") ?: "Turbo Mode"
-        val planReview = prefs.getString(KEY_PLAN_REVIEW_POLICY, "Always Ask") ?: "Always Ask"
-        val browserJs = prefs.getString(KEY_BROWSER_JS_POLICY, "Request Review") ?: "Request Review"
-        val creditOverages = prefs.getBoolean(KEY_ENABLE_CREDIT_OVERAGES, false)
-
-        mutableAppearanceConfig.value = AppearanceConfig(
-            themeMode = themeMode,
-            accentColor = AccentColor.BLUE
+        settingsPreferencesDelegate.loadPreferences(
+            context = context,
+            onCliModelsDecoded = { mutableCliModels.value = it },
+            onWorkspaceLoaded = { projectWorkspaceDelegate.setWorkspacePathDirect(it) }
         )
-        mutableSelectedModel.value = model
-
-        val savedCliId = prefs.getString(KEY_SELECTED_MODEL_CLI_ID, null)
-        val cleanSavedCliId = savedCliId?.let { AgyModelsService.cleanModelId(it) }
-        mutableSelectedModelCliId.value = cleanSavedCliId
-        if (savedCliId != cleanSavedCliId) {
-            val prefEditor = prefs.edit()
-            if (cleanSavedCliId != null) {
-                prefEditor.putString(KEY_SELECTED_MODEL_CLI_ID, cleanSavedCliId)
-            } else {
-                prefEditor.remove(KEY_SELECTED_MODEL_CLI_ID)
-            }
-            prefEditor.apply()
-        }
-        val cachedCliJson = prefs.getString(KEY_CLI_MODELS_JSON, null)
-        if (!cachedCliJson.isNullOrBlank()) {
-            mutableCliModels.value = AgyModelsService.decodeCliModels(cachedCliJson)
-        }
-        mutableThinkingBudget.value = budget
-        mutableVerboseThinking.value = verbose
-        mutableConversationWidth.value = width
-        mutableThemePreset.value = preset
-        mutableCustomThemeBg.value = customBg
-        mutableCustomThemeFg.value = customFg
-        mutableCustomThemeAccent.value = customAccent
-        mutableEditorWordWrap.value = wrap
-        mutableEditorLineNumbers.value = lineNums
-        mutableEditorFontSize.value = fontSize
-        mutableSkipPermissions.value = skipPerms
-        mutableProjectSortOrder.value = sortOrder
-        mutableQueuedMessagesMode.value = queued
-        mutableSecurityPreset.value = secPreset
-        mutablePlanReviewPolicy.value = planReview
-        mutableBrowserJsPolicy.value = browserJs
-        mutableEnableCreditOverages.value = creditOverages
-
-        if (!savedWorkspace.isNullOrBlank() && File(savedWorkspace).exists()) {
-            mutableWorkspacePath.value = savedWorkspace
-        } else {
-            mutableWorkspacePath.value = ""
-        }
-
-        val cachedName = prefs.getString(OAuthManager.KEY_USER_NAME, null)
-        val cachedPicture = prefs.getString(OAuthManager.KEY_USER_PICTURE, null)
-        if (!cachedName.isNullOrBlank()) {
-            mutableUserName.value = cachedName
-        }
-        if (!cachedPicture.isNullOrBlank()) {
-            mutableUserPicture.value = cachedPicture
-        }
-
         refreshAuthState(context)
         refreshPermissions(context)
         refreshRules(context)
@@ -628,490 +547,372 @@ class AntigravityViewModel : ViewModel() {
         loadConversationHistory(context)
     }
 
-    fun refreshAuthState(context: Context) {
-        OAuthManager.checkAndImportExistingToken(context)
-        val allAccounts = AccountManager.getAccounts(context)
-        mutableAccounts.value = allAccounts
-        val email = OAuthManager.getUserEmail(context)
-        mutableUserEmail.value = email
-        val name = OAuthManager.getUserName(context) ?: if (email != null) {
-            email.substringBefore("@").replace(".", " ").split(" ")
-                .joinToString(" ") { word -> word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } }
-        } else ""
-        mutableUserName.value = name
-        val pic = OAuthManager.getUserPicture(context)
-        if (!pic.isNullOrBlank()) {
-            mutableUserPicture.value = pic
+    fun setModel(context: Context, model: String, budget: String = thinkingBudget.value, cliId: String? = null) =
+        settingsPreferencesDelegate.setModel(context, model, budget, cliId, mutableUserQuotaSummary.value, ::addLog)
+
+    fun setThinkingBudget(context: Context, budget: String) =
+        settingsPreferencesDelegate.setThinkingBudget(context, budget)
+
+    fun setVerboseThinking(context: Context, verbose: Boolean) =
+        settingsPreferencesDelegate.setVerboseThinking(context, verbose)
+
+    fun setConversationWidth(context: Context, width: String) =
+        settingsPreferencesDelegate.setConversationWidth(context, width)
+
+    fun setThemeMode(context: Context, mode: ThemeMode) =
+        settingsPreferencesDelegate.setThemeMode(context, mode, ::addLog)
+
+    fun setAccentColor(context: Context, accent: AccentColor) =
+        settingsPreferencesDelegate.setAccentColor(context, accent, ::addLog)
+
+    fun setThemePreset(context: Context, preset: String) =
+        settingsPreferencesDelegate.setThemePreset(context, preset, ::addLog)
+
+    fun updateCustomThemeColor(context: Context, target: String, newHex: String, currentPreset: ThemePreset) =
+        settingsPreferencesDelegate.updateCustomThemeColor(context, target, newHex, currentPreset, ::addLog)
+
+    fun setEditorWordWrap(context: Context, wrap: Boolean) =
+        settingsPreferencesDelegate.setEditorWordWrap(context, wrap)
+
+    fun setEditorLineNumbers(context: Context, show: Boolean) =
+        settingsPreferencesDelegate.setEditorLineNumbers(context, show)
+
+    fun setEditorFontSize(context: Context, size: Int) =
+        settingsPreferencesDelegate.setEditorFontSize(context, size)
+
+    fun setSkipPermissions(context: Context, skip: Boolean) =
+        settingsPreferencesDelegate.setSkipPermissions(context, skip)
+
+    fun setQueuedMessagesMode(context: Context, mode: String) =
+        settingsPreferencesDelegate.setQueuedMessagesMode(context, mode, ::addLog)
+
+    fun setSecurityPreset(context: Context, preset: String) =
+        settingsPreferencesDelegate.setSecurityPreset(context, preset, viewModelScope, ::addLog)
+
+    fun setPlanReviewPolicy(context: Context, policy: String) =
+        settingsPreferencesDelegate.setPlanReviewPolicy(context, policy, viewModelScope, ::addLog)
+
+    fun setBrowserJsPolicy(context: Context, policy: String) =
+        settingsPreferencesDelegate.setBrowserJsPolicy(context, policy, ::addLog)
+
+    fun setEnableCreditOverages(context: Context, enabled: Boolean) =
+        settingsPreferencesDelegate.setEnableCreditOverages(context, enabled, ::addLog)
+
+    fun refreshPermissions(context: Context) =
+        settingsPreferencesDelegate.refreshPermissions(context, viewModelScope)
+
+    fun addPermissionRule(context: Context, action: String, pattern: String, mode: String) =
+        settingsPreferencesDelegate.addPermissionRule(context, action, pattern, mode, viewModelScope, ::addLog)
+
+    fun updatePermissionRule(context: Context, action: String, oldPattern: String, newPattern: String, newMode: String) =
+        settingsPreferencesDelegate.updatePermissionRule(context, action, oldPattern, newPattern, newMode, viewModelScope, ::addLog)
+
+    fun removePermissionRule(context: Context, action: String, pattern: String) =
+        settingsPreferencesDelegate.removePermissionRule(context, action, pattern, viewModelScope, ::addLog)
+
+    fun refreshRules(context: Context) =
+        settingsPreferencesDelegate.refreshRules(context, workspacePath.value, viewModelScope)
+
+    fun saveRuleContent(context: Context, filePath: String, content: String, onComplete: ((Boolean) -> Unit)? = null) =
+        settingsPreferencesDelegate.saveRuleContent(context, filePath, content, workspacePath.value, viewModelScope, ::addLog, onComplete)
+
+    fun createRule(context: Context, ruleName: String, content: String, onComplete: ((Boolean) -> Unit)? = null) =
+        settingsPreferencesDelegate.createRule(context, ruleName, content, workspacePath.value, viewModelScope, ::addLog, onComplete)
+
+    fun deleteRule(context: Context, filePath: String, onComplete: ((Boolean) -> Unit)? = null) =
+        settingsPreferencesDelegate.deleteRule(context, filePath, workspacePath.value, viewModelScope, ::addLog, onComplete)
+
+    fun refreshMcpServers(context: Context) =
+        settingsPreferencesDelegate.refreshMcpServers(context, viewModelScope)
+
+    fun saveMcpServer(context: Context, server: McpServerItem, onComplete: ((Boolean) -> Unit)? = null) =
+        settingsPreferencesDelegate.saveMcpServer(context, server, viewModelScope, ::addLog, onComplete)
+
+    fun deleteMcpServer(context: Context, serverName: String, onComplete: ((Boolean) -> Unit)? = null) =
+        settingsPreferencesDelegate.deleteMcpServer(context, serverName, viewModelScope, ::addLog, onComplete)
+
+    suspend fun loadRawMcpConfig(context: Context): String =
+        settingsPreferencesDelegate.loadRawMcpConfig(context)
+
+    fun saveRawMcpConfig(context: Context, rawJson: String, onComplete: ((Boolean) -> Unit)? = null) =
+        settingsPreferencesDelegate.saveRawMcpConfig(context, rawJson, viewModelScope, ::addLog, onComplete)
+
+    fun refreshAuthState(context: Context) =
+        authDelegate.refreshAuthState(context, viewModelScope, ::refreshUserQuota)
+
+    fun switchAccount(context: Context, accountId: String) =
+        authDelegate.switchAccount(context, accountId, viewModelScope) {
+            mutableUserQuotaSummary.value = null
+            mutableCodeAssistTier.value = null
+            mutableCliModels.value = emptyList()
+            refreshAuthState(context)
+            CloudCodeQuotaService.restartLocalLanguageServer(context)
+            restartCoreService(context)
+            refreshUserQuota(context)
+            refreshCliModels(context, force = true)
         }
 
-        refreshUserQuota(context)
-
-        viewModelScope.launch {
-            if (OAuthManager.refreshTokenIfNeeded(context)) {
-                val newEmail = OAuthManager.getUserEmail(context)
-                mutableUserEmail.value = newEmail
-                val newName = OAuthManager.getUserName(context) ?: if (newEmail != null) {
-                    newEmail.substringBefore("@").replace(".", " ").split(" ")
-                        .joinToString(" ") { word -> word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } }
-                } else ""
-                mutableUserName.value = newName
-                val refreshedPic = OAuthManager.getUserPicture(context)
-                if (!refreshedPic.isNullOrBlank()) {
-                    mutableUserPicture.value = refreshedPic
-                }
-                if (newEmail != null) {
-                    refreshUserQuota(context)
-                }
-            }
-            val userInfo = OAuthManager.fetchUserInfo(context)
-            if (userInfo != null) {
-                if (!userInfo.name.isNullOrBlank()) {
-                    mutableUserName.value = userInfo.name
-                }
-                if (!userInfo.picture.isNullOrBlank()) {
-                    mutableUserPicture.value = userInfo.picture
-                }
-                if (!userInfo.email.isNullOrBlank()) {
-                    mutableUserEmail.value = userInfo.email
-                }
-            }
-            mutableAccounts.value = AccountManager.getAccounts(context)
-        }
-    }
-
-    fun switchAccount(context: Context, accountId: String) {
-        viewModelScope.launch {
-            val success = AccountManager.switchAccount(context, accountId)
-            if (success) {
+    fun removeAccount(context: Context, accountId: String) =
+        authDelegate.removeAccount(context, accountId, viewModelScope) {
+            refreshAuthState(context)
+            val currentActive = AccountManager.getActiveAccount(context)
+            if (currentActive != null) {
                 mutableUserQuotaSummary.value = null
                 mutableCodeAssistTier.value = null
                 mutableCliModels.value = emptyList()
-                AgyModelsService.invalidateCache()
-                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                prefs.edit()
-                    .remove(KEY_CLI_MODELS_FETCHED_AT)
-                    .remove(KEY_CLI_MODELS_JSON)
-                    .remove(KEY_SELECTED_MODEL_CLI_ID)
-                    .apply()
-                refreshAuthState(context)
                 CloudCodeQuotaService.restartLocalLanguageServer(context)
                 restartCoreService(context)
                 refreshUserQuota(context)
                 refreshCliModels(context, force = true)
             }
         }
-    }
 
-    fun removeAccount(context: Context, accountId: String) {
-        viewModelScope.launch {
-            val success = AccountManager.removeAccount(context, accountId)
-            if (success) {
+    fun startGoogleSignIn(context: Context) =
+        authDelegate.startGoogleSignIn(
+            context = context,
+            scope = viewModelScope,
+            onSuccess = { email ->
+                mutableUserQuotaSummary.value = null
+                mutableCodeAssistTier.value = null
+                mutableCliModels.value = emptyList()
+                AgyModelsService.invalidateCache()
                 refreshAuthState(context)
-                val currentActive = AccountManager.getActiveAccount(context)
-                if (currentActive != null) {
-                    mutableUserQuotaSummary.value = null
-                    mutableCodeAssistTier.value = null
-                    mutableCliModels.value = emptyList()
-                    AgyModelsService.invalidateCache()
-                    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                    prefs.edit()
-                        .remove(KEY_CLI_MODELS_FETCHED_AT)
-                        .remove(KEY_CLI_MODELS_JSON)
-                        .remove(KEY_SELECTED_MODEL_CLI_ID)
-                        .apply()
-                    CloudCodeQuotaService.restartLocalLanguageServer(context)
-                    restartCoreService(context)
+                CloudCodeQuotaService.restartLocalLanguageServer(context)
+                restartCoreService(context)
+                refreshCliModels(context, force = true)
+                addLog("Auth", "Google sign-in successful: $email")
+                Toast.makeText(context, context.getString(R.string.auth_signed_in_success, email ?: ""), Toast.LENGTH_SHORT).show()
+                viewModelScope.launch {
+                    delay(2500)
                     refreshUserQuota(context)
-                    refreshCliModels(context, force = true)
                 }
+            },
+            onLog = ::addLog
+        )
+
+    fun onActivityResume(context: Context) =
+        authDelegate.onActivityResume(
+            context = context,
+            scope = viewModelScope,
+            onCheckUpdates = {
+                checkForCoreEngineUpdate(it)
+                checkForOtaUpdates(it)
+            },
+            onAccountChangeDetected = { email ->
+                mutableUserQuotaSummary.value = null
+                mutableCodeAssistTier.value = null
+                mutableCliModels.value = emptyList()
+                AgyModelsService.invalidateCache()
+                CloudCodeQuotaService.restartLocalLanguageServer(context)
+                restartCoreService(context)
+                addLog("Auth", "Account switch detected on app resume: $email")
+                refreshAuthState(context)
+                refreshCliModels(context, force = true)
             }
-        }
-    }
+        )
 
-    fun setModel(context: Context, model: String, budget: String = mutableThinkingBudget.value, cliId: String? = null) {
-        val quota = mutableUserQuotaSummary.value
-
-        val availability = quota?.availableModels?.firstOrNull { it.matches(model) }?.availability ?: ModelAvailability.UNKNOWN
-
-        if (availability == ModelAvailability.UNAVAILABLE) {
-            val unavailMsg = context.getString(R.string.model_toast_not_available, model)
-            addLog("Model", unavailMsg)
-            Toast.makeText(context, unavailMsg, Toast.LENGTH_SHORT).show()
-            return
-        }
-        val cleanCliId = cliId?.let { AgyModelsService.cleanModelId(it) }
-        mutableSelectedModel.value = model
-        mutableThinkingBudget.value = budget
-        mutableSelectedModelCliId.value = cleanCliId
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val editor = prefs.edit().putString(KEY_SELECTED_MODEL, model).putString(KEY_THINKING_BUDGET, budget)
-        if (cleanCliId != null) editor.putString(KEY_SELECTED_MODEL_CLI_ID, cleanCliId) else editor.remove(KEY_SELECTED_MODEL_CLI_ID)
-        editor.apply()
-        val thinkingDesc = if (budget.isNotBlank()) "$budget Thinking" else "Default"
-        addLog("Model", "Selected model: $model ($thinkingDesc)")
-    }
-
-    fun setThinkingBudget(context: Context, budget: String) {
-        mutableThinkingBudget.value = budget
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_THINKING_BUDGET, budget).apply()
-    }
-
-    fun setVerboseThinking(context: Context, verbose: Boolean) {
-        mutableVerboseThinking.value = verbose
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_VERBOSE_THINKING, verbose).apply()
-    }
-
-    fun setConversationWidth(context: Context, width: String) {
-        mutableConversationWidth.value = width
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_CONVERSATION_WIDTH, width).apply()
-    }
-
-    fun setThemeMode(context: Context, mode: ThemeMode) {
-        val newPreset = when (mode) {
-            ThemeMode.LIGHT -> ThemePreset.DEFAULT_LIGHT.displayName
-            ThemeMode.DARK -> {
-                if (mutableThemePreset.value == ThemePreset.DEFAULT_LIGHT.displayName) {
-                    ThemePreset.DEFAULT_DARK.displayName
-                } else {
-                    mutableThemePreset.value
+    fun exchangeManualAuthCode(context: Context, rawCodeOrToken: String) =
+        authDelegate.exchangeManualAuthCode(
+            context = context,
+            rawCodeOrToken = rawCodeOrToken,
+            scope = viewModelScope,
+            onStdinSent = {
+                viewModelScope.launch {
+                    delay(1500)
+                    OAuthManager.checkAndImportExistingToken(context)
+                    refreshAuthState(context)
+                    restartCoreService(context)
                 }
+            },
+            onSuccess = { email ->
+                mutableUserQuotaSummary.value = null
+                mutableCodeAssistTier.value = null
+                mutableCliModels.value = emptyList()
+                AgyModelsService.invalidateCache()
+                refreshAuthState(context)
+                restartCoreService(context)
+                refreshCliModels(context, force = true)
+                addLog("Auth", "Google sign-in successful: $email")
+                Toast.makeText(context, context.getString(R.string.auth_signed_in_success, email ?: ""), Toast.LENGTH_SHORT).show()
+                viewModelScope.launch {
+                    delay(2500)
+                    refreshUserQuota(context)
+                }
+            },
+            onLog = ::addLog
+        )
+
+    fun signOutGoogle(context: Context) =
+        authDelegate.signOutGoogle(
+            context = context,
+            onSignedOut = {
+                mutableUserQuotaSummary.value = null
+                mutableCodeAssistTier.value = null
+                mutableCliModels.value = emptyList()
+                settingsPreferencesDelegate.setSelectedModelCliIdDirect(null)
+                settingsPreferencesDelegate.setSelectedModelDirect("")
+                settingsPreferencesDelegate.setThinkingBudgetDirect("")
+                CloudCodeQuotaService.restartLocalLanguageServer(context)
+                restartCoreService(context)
+            },
+            onLog = ::addLog
+        )
+
+    fun showGoogleSignInDialog() = authDelegate.showGoogleSignInDialog()
+    fun dismissGoogleSignInDialog() = authDelegate.dismissGoogleSignInDialog()
+
+    fun loadProjects(context: Context) = projectWorkspaceDelegate.loadProjects(context)
+    fun saveProjects(context: Context, list: List<File>) = projectWorkspaceDelegate.saveProjects(context, list)
+    fun addProject(context: Context, path: String): File = projectWorkspaceDelegate.addProject(context, path, ::addLog)
+    fun removeProject(context: Context, path: String) = projectWorkspaceDelegate.removeProject(context, path, ::addLog)
+    fun resolveTreeUriToFolder(context: Context, treeUri: Uri): File? = projectWorkspaceDelegate.resolveTreeUriToFolder(context, treeUri)
+    fun addProjectFromTreeUri(context: Context, treeUri: Uri): File? = projectWorkspaceDelegate.addProjectFromTreeUri(context, treeUri, ::addLog)
+    fun setProjectSortOrder(context: Context, order: ProjectSortOrder) = projectWorkspaceDelegate.setProjectSortOrder(context, order)
+    fun createProjectInFolder(context: Context, name: String, parentDir: File): File? = projectWorkspaceDelegate.createProjectInFolder(context, name, parentDir, ::addLog)
+    fun createProjectFolder(context: Context, name: String, targetBase: File? = null): File? = projectWorkspaceDelegate.createProjectFolder(context, name, targetBase, ::addLog)
+    fun setWorkspacePath(context: Context, path: String) = projectWorkspaceDelegate.setWorkspacePath(context, path, ::addLog)
+
+    fun saveConversationHistory(context: Context) = conversationManagerDelegate.saveConversationHistory(context)
+    fun saveLastActiveConversationId(context: Context, id: String?) = conversationManagerDelegate.saveLastActiveConversationId(context, id)
+    fun saveMessagesForConversation(context: Context, conversationId: String, messages: List<ChatMessage>) =
+        conversationManagerDelegate.saveMessagesForConversation(context, conversationId, messages, viewModelScope)
+    fun loadMessagesForConversation(context: Context, conversationId: String): List<ChatMessage> =
+        conversationManagerDelegate.loadMessagesForConversation(context, conversationId)
+    fun loadConversationHistory(context: Context) =
+        conversationManagerDelegate.loadConversationHistory(
+            context = context,
+            onWorkspaceChange = { setWorkspacePath(context, it) },
+            onMessagesLoaded = { mutableChatMessages.value = it }
+        )
+    fun startNewConversation(context: Context? = null, projectPath: String? = workspacePath.value) =
+        conversationManagerDelegate.startNewConversation(
+            context = context,
+            projectPath = projectPath,
+            currentMessages = mutableChatMessages.value,
+            scope = viewModelScope,
+            onWorkspaceChange = { if (context != null) setWorkspacePath(context, it) else projectWorkspaceDelegate.setWorkspacePathDirect(it) },
+            onClearState = {
+                mutableChatMessages.value = emptyList()
+                mutableAttachedFiles.value = emptyList()
             }
-            ThemeMode.SYSTEM -> mutableThemePreset.value
-        }
-        mutableAppearanceConfig.update { it.copy(themeMode = mode) }
-        mutableThemePreset.value = newPreset
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit()
-            .putString(KEY_THEME_MODE, mode.name)
-            .putString(KEY_THEME_PRESET, newPreset)
-            .apply()
-        addLog("Appearance", "Theme set to: ${mode.name}")
+        )
+    fun loadConversation(context: Context, summary: ConversationSummary) =
+        conversationManagerDelegate.loadConversation(
+            context = context,
+            summary = summary,
+            currentMessages = mutableChatMessages.value,
+            scope = viewModelScope,
+            onWorkspaceChange = { setWorkspacePath(context, it) },
+            onMessagesLoaded = { mutableChatMessages.value = it },
+            onLog = ::addLog
+        )
+    fun loadConversation(summary: ConversationSummary) =
+        conversationManagerDelegate.loadConversation(
+            summary = summary,
+            onWorkspaceChange = { projectWorkspaceDelegate.setWorkspacePathDirect(it) },
+            onLog = ::addLog
+        )
+    fun renameConversation(newTitle: String, summaryId: String? = null, context: Context? = null) =
+        conversationManagerDelegate.renameConversation(
+            newTitle = newTitle,
+            summaryId = summaryId,
+            context = context,
+            currentMessageCount = mutableChatMessages.value.size,
+            currentWorkspacePath = workspacePath.value,
+            onLog = ::addLog
+        )
+    fun togglePinConversation(summaryId: String? = null, context: Context? = null): Boolean =
+        conversationManagerDelegate.togglePinConversation(summaryId, context, ::addLog)
+    fun deleteConversation(id: String) =
+        conversationManagerDelegate.deleteConversation(
+            context = null,
+            id = id,
+            onNextSummaryLoaded = { loadConversation(it) },
+            onCleared = {
+                mutableChatMessages.value = emptyList()
+                mutableAttachedFiles.value = emptyList()
+            },
+            onLog = ::addLog
+        )
+    fun deleteConversation(context: Context, id: String) =
+        conversationManagerDelegate.deleteConversation(
+            context = context,
+            id = id,
+            onNextSummaryLoaded = { loadConversation(context, it) },
+            onCleared = {
+                mutableChatMessages.value = emptyList()
+                mutableAttachedFiles.value = emptyList()
+            },
+            onLog = ::addLog
+        )
+    fun deleteCurrentConversation(context: Context) =
+        conversationManagerDelegate.deleteCurrentConversation(
+            context = context,
+            onNextSummaryLoaded = { loadConversation(context, it) },
+            onCleared = {
+                mutableChatMessages.value = emptyList()
+                mutableAttachedFiles.value = emptyList()
+            },
+            onLog = ::addLog
+        )
+    fun archiveConversation(context: Context? = null) =
+        conversationManagerDelegate.archiveConversation(context, mutableChatMessages.value, workspacePath.value)
+
+    fun clearRepoInspection() = customizationInstallerDelegate.clearRepoInspection()
+    fun toggleRepoSkillSelection(skillId: String) = customizationInstallerDelegate.toggleRepoSkillSelection(skillId)
+    fun setAllRepoSkillsSelection(selectAll: Boolean) = customizationInstallerDelegate.setAllRepoSkillsSelection(selectAll)
+    fun normalizeGitRepoUrl(rawUrl: String): Pair<String, String?> = customizationInstallerDelegate.normalizeGitRepoUrl(rawUrl)
+    fun inspectRepoForSkills(context: Context, rawRepoUrl: String) = customizationInstallerDelegate.inspectRepoForSkills(context, rawRepoUrl, viewModelScope)
+    fun installSkillViaTerminal(context: Context, skillItem: SkillCatalogueItem) =
+        customizationInstallerDelegate.installSkillViaTerminal(context, skillItem, getBuiltinSkillsDir(context), viewModelScope, ::fetchLatestRepoCommitSha, ::registerTrackedCustomization, ::refreshSkills)
+    fun installPluginViaTerminal(context: Context, pluginItem: SkillCatalogueItem) =
+        customizationInstallerDelegate.installPluginViaTerminal(context, pluginItem, viewModelScope, ::fetchLatestRepoCommitSha, ::registerTrackedCustomization, ::refreshPlugins)
+    fun updateCustomizationViaTerminal(context: Context, track: CustomizationRepoTrack) =
+        customizationInstallerDelegate.updateCustomizationViaTerminal(context, track, viewModelScope, ::getTrackedCustomizations, ::saveTrackedCustomizations, ::refreshSkills, ::refreshPlugins)
+    fun installCustomFromRepoViaTerminal(context: Context, rawRepoUrl: String, customName: String, subPath: String?, isPlugin: Boolean) =
+        customizationInstallerDelegate.installCustomFromRepoViaTerminal(context, rawRepoUrl, customName, subPath, isPlugin, viewModelScope, ::fetchLatestRepoCommitSha, ::registerTrackedCustomization, ::refreshSkills, ::refreshPlugins)
+    fun installSelectedRepoSkillsViaTerminal(context: Context, rawRepoUrl: String, selectedSkills: List<DiscoveredRepoSkill>) =
+        customizationInstallerDelegate.installSelectedRepoSkillsViaTerminal(context, rawRepoUrl, selectedSkills, viewModelScope, ::fetchLatestRepoCommitSha, ::registerTrackedCustomization, ::refreshSkills)
+    fun dismissInstallProgress() = customizationInstallerDelegate.dismissInstallProgress()
+
+    fun getTrackedCustomizations(context: Context): Map<String, CustomizationRepoTrack> = customizationCatalogueDelegate.getTrackedCustomizations(context)
+    fun saveTrackedCustomizations(context: Context, tracks: Map<String, CustomizationRepoTrack>) = customizationCatalogueDelegate.saveTrackedCustomizations(context, tracks)
+    fun registerTrackedCustomization(context: Context, track: CustomizationRepoTrack) = customizationCatalogueDelegate.registerTrackedCustomization(context, track)
+    fun unregisterTrackedCustomization(context: Context, id: String) = customizationCatalogueDelegate.unregisterTrackedCustomization(context, id)
+    fun loadTrackedCustomizations(context: Context) = customizationCatalogueDelegate.loadTrackedCustomizations(context)
+    fun fetchLatestRepoCommitSha(repoUrl: String, subPath: String? = null): String? = customizationCatalogueDelegate.fetchLatestRepoCommitSha(repoUrl, subPath)
+    fun seedCatalogueTrackingIfInstalled(context: Context) = customizationCatalogueDelegate.seedCatalogueTrackingIfInstalled(context)
+    fun checkForCustomizationUpdates(context: Context, force: Boolean = false) = customizationCatalogueDelegate.checkForCustomizationUpdates(context, viewModelScope, force)
+    fun getGeminiConfigDir(context: Context): File = customizationCatalogueDelegate.getGeminiConfigDir(context)
+    fun syncConfigBidirectional(context: Context) = customizationCatalogueDelegate.syncConfigBidirectional(context)
+    fun syncConfigToRoot(context: Context) = customizationCatalogueDelegate.syncConfigToRoot(context)
+    fun getBuiltinSkillsDir(context: Context): File = customizationCatalogueDelegate.getBuiltinSkillsDir(context)
+    fun getInstalledSkills(context: Context): List<CustomizationItem> = customizationCatalogueDelegate.getInstalledSkills(context, workspacePath.value)
+    fun refreshSkills(context: Context) = customizationCatalogueDelegate.refreshSkills(context, viewModelScope, workspacePath.value)
+    fun installSkill(context: Context, name: String, description: String, content: String): Boolean = customizationCatalogueDelegate.installSkill(context, name, description, content, viewModelScope, ::addLog)
+    fun uninstallSkill(context: Context, name: String): Boolean = customizationCatalogueDelegate.uninstallSkill(context, name, viewModelScope, ::addLog)
+    fun getInstalledPlugins(context: Context): List<CustomizationItem> = customizationCatalogueDelegate.getInstalledPlugins(context)
+    fun refreshPlugins(context: Context) = customizationCatalogueDelegate.refreshPlugins(context, viewModelScope)
+    fun installPlugin(context: Context, name: String, description: String): Boolean = customizationCatalogueDelegate.installPlugin(context, name, description, viewModelScope, ::addLog)
+    fun uninstallPlugin(context: Context, name: String): Boolean = customizationCatalogueDelegate.uninstallPlugin(context, name, viewModelScope, ::addLog)
+    fun getAvailableSkillsCatalogue(): List<SkillCatalogueItem> = customizationCatalogueDelegate.getAvailableSkillsCatalogue()
+    fun getDefaultSkillsCatalogue(): List<SkillCatalogueItem> = customizationCatalogueDelegate.getDefaultSkillsCatalogue()
+    fun getAvailablePluginsCatalogue(): List<SkillCatalogueItem> = customizationCatalogueDelegate.getAvailablePluginsCatalogue()
+    fun getDefaultPluginsCatalogue(): List<SkillCatalogueItem> = customizationCatalogueDelegate.getDefaultPluginsCatalogue()
+    fun loadCachedCatalogue(context: Context) = customizationCatalogueDelegate.loadCachedCatalogue(context, viewModelScope)
+    fun fetchRemoteCatalogue(context: Context, force: Boolean = false) = customizationCatalogueDelegate.fetchRemoteCatalogue(context, viewModelScope, force, ::addLog)
+    fun getInstalledRules(context: Context): List<Pair<String, String>> = customizationCatalogueDelegate.getInstalledRules(context)
+    fun installPluginFromCatalogueAsync(context: Context, pluginId: String, onComplete: (Boolean) -> Unit) = customizationCatalogueDelegate.installPluginFromCatalogueAsync(context, pluginId, viewModelScope, ::addLog, onComplete)
+    fun installSkillFromCatalogueAsync(context: Context, skillId: String, onComplete: (Boolean) -> Unit) = customizationCatalogueDelegate.installSkillFromCatalogueAsync(context, skillId, viewModelScope, ::addLog, onComplete)
+    fun installSkillFromCatalogue(context: Context, skillId: String): Boolean {
+        installSkillFromCatalogueAsync(context, skillId) {}
+        return true
     }
-
-    fun setAccentColor(context: Context, accent: AccentColor) {
-        mutableAppearanceConfig.update { it.copy(accentColor = accent) }
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_ACCENT_COLOR, accent.name).apply()
-        addLog("Appearance", "Accent color set to: ${accent.displayName}")
+    fun installPluginFromCatalogue(context: Context, pluginId: String): Boolean {
+        installPluginFromCatalogueAsync(context, pluginId) {}
+        return true
     }
-
-    fun setThemePreset(context: Context, preset: String) {
-        mutableThemePreset.value = preset
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        if (preset == ThemePreset.DEFAULT_LIGHT.displayName) {
-            mutableAppearanceConfig.update { it.copy(themeMode = ThemeMode.LIGHT) }
-            prefs.edit().putString(KEY_THEME_MODE, ThemeMode.LIGHT.name).apply()
-        } else if (mutableAppearanceConfig.value.themeMode == ThemeMode.LIGHT) {
-            mutableAppearanceConfig.update { it.copy(themeMode = ThemeMode.DARK) }
-            prefs.edit().putString(KEY_THEME_MODE, ThemeMode.DARK.name).apply()
-        }
-        prefs.edit().putString(KEY_THEME_PRESET, preset).apply()
-        addLog("Appearance", "Theme preset set to: $preset")
-    }
-
-    fun updateCustomThemeColor(context: Context, target: String, newHex: String, currentPreset: ThemePreset) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val editor = prefs.edit()
-
-        if (mutableThemePreset.value != ThemePreset.CUSTOM.displayName && currentPreset != ThemePreset.CUSTOM) {
-            mutableCustomThemeBg.value = currentPreset.bgHex
-            mutableCustomThemeFg.value = currentPreset.fgHex
-            mutableCustomThemeAccent.value = currentPreset.accentHex
-            editor.putString(KEY_CUSTOM_THEME_BG, currentPreset.bgHex)
-            editor.putString(KEY_CUSTOM_THEME_FG, currentPreset.fgHex)
-            editor.putString(KEY_CUSTOM_THEME_ACCENT, currentPreset.accentHex)
-        }
-
-        when (target) {
-            "bg" -> {
-                mutableCustomThemeBg.value = newHex
-                editor.putString(KEY_CUSTOM_THEME_BG, newHex)
-            }
-            "fg" -> {
-                mutableCustomThemeFg.value = newHex
-                editor.putString(KEY_CUSTOM_THEME_FG, newHex)
-            }
-            "accent" -> {
-                mutableCustomThemeAccent.value = newHex
-                editor.putString(KEY_CUSTOM_THEME_ACCENT, newHex)
-            }
-        }
-        mutableThemePreset.value = ThemePreset.CUSTOM.displayName
-        editor.putString(KEY_THEME_PRESET, ThemePreset.CUSTOM.displayName)
-        editor.apply()
-        addLog("Appearance", "Custom theme color $target updated to: $newHex")
-    }
-
-    fun setEditorWordWrap(context: Context, wrap: Boolean) {
-        mutableEditorWordWrap.value = wrap
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_EDITOR_WORD_WRAP, wrap).apply()
-    }
-
-    fun setEditorLineNumbers(context: Context, show: Boolean) {
-        mutableEditorLineNumbers.value = show
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_EDITOR_LINE_NUMBERS, show).apply()
-    }
-
-    fun setEditorFontSize(context: Context, size: Int) {
-        mutableEditorFontSize.value = size
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putInt(KEY_EDITOR_FONT_SIZE, size).apply()
-    }
-
-    fun setSkipPermissions(context: Context, skip: Boolean) {
-        mutableSkipPermissions.value = skip
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_SKIP_PERMISSIONS, skip).apply()
-    }
-
-    fun setQueuedMessagesMode(context: Context, mode: String) {
-        mutableQueuedMessagesMode.value = mode
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_QUEUED_MESSAGES_MODE, mode).apply()
-        addLog("General", "Queued messages delivery set to: $mode")
-    }
-
-    fun setSecurityPreset(context: Context, preset: String) {
-        val normalizedPreset = when (preset.lowercase()) {
-            "turbo", "turbo mode" -> "Turbo"
-            "auto", "permissive" -> "Auto"
-            "default", "standard" -> "Default"
-            "request review", "request_review" -> "Request Review"
-            else -> preset
-        }
-        mutableSecurityPreset.value = normalizedPreset
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_SECURITY_PRESET, normalizedPreset).apply()
-        addLog("General", "Security preset set to: $normalizedPreset")
-
-        val autoExec = when (normalizedPreset) {
-            "Turbo" -> "CASCADE_COMMANDS_AUTO_EXECUTION_EAGER"
-            "Auto" -> "CASCADE_COMMANDS_AUTO_EXECUTION_ALLOW"
-            "Default" -> "CASCADE_COMMANDS_AUTO_EXECUTION_ASK"
-            "Request Review" -> "CASCADE_COMMANDS_AUTO_EXECUTION_NEVER"
-            else -> "CASCADE_COMMANDS_AUTO_EXECUTION_EAGER"
-        }
-        val planReview = when (normalizedPreset) {
-            "Turbo", "Auto" -> "Always Proceed"
-            "Default" -> "Ask for Sensitive"
-            "Request Review" -> "Always Ask"
-            else -> "Always Proceed"
-        }
-        val enableSandbox = normalizedPreset == "Default" || normalizedPreset == "Request Review"
-        val skipPerms = normalizedPreset == "Turbo"
-
-        setSkipPermissions(context, skipPerms)
-        mutablePlanReviewPolicy.value = planReview
-
-        viewModelScope.launch {
-            val current = mutablePermissionState.value
-            val updated = current.copy(
-                securityPreset = normalizedPreset,
-                autoExecutionPolicy = autoExec,
-                planReviewPolicy = planReview,
-                enableTerminalSandbox = enableSandbox
-            )
-            mutablePermissionState.value = updated
-            PermissionConfigService.savePermissions(context, updated)
-        }
-    }
-
-    fun setPlanReviewPolicy(context: Context, policy: String) {
-        mutablePlanReviewPolicy.value = policy
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_PLAN_REVIEW_POLICY, policy).apply()
-        addLog("General", "Plan review policy set to: $policy")
-
-        viewModelScope.launch {
-            val current = mutablePermissionState.value
-            val updated = current.copy(planReviewPolicy = policy)
-            mutablePermissionState.value = updated
-            PermissionConfigService.savePermissions(context, updated)
-        }
-    }
-
-    fun setBrowserJsPolicy(context: Context, policy: String) {
-        mutableBrowserJsPolicy.value = policy
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_BROWSER_JS_POLICY, policy).apply()
-        addLog("General", "Browser JS policy set to: $policy")
-    }
-
-    fun setEnableCreditOverages(context: Context, enabled: Boolean) {
-        mutableEnableCreditOverages.value = enabled
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putBoolean(KEY_ENABLE_CREDIT_OVERAGES, enabled).apply()
-        addLog("Models", "AI credit overages set to: $enabled")
-    }
-
-    fun refreshPermissions(context: Context) {
-        viewModelScope.launch {
-            val state = PermissionConfigService.loadPermissions(context)
-            mutablePermissionState.value = state
-        }
-    }
-
-    fun addPermissionRule(context: Context, action: String, pattern: String, mode: String) {
-        viewModelScope.launch {
-            val current = mutablePermissionState.value
-            val cleanPattern = pattern.trim()
-            if (cleanPattern.isBlank()) return@launch
-            val filtered = current.rules.filterNot { it.action == action && it.pattern == cleanPattern }
-            val updated = filtered + PermissionRule(action, cleanPattern, mode)
-            val newState = current.copy(rules = updated)
-            mutablePermissionState.value = newState
-            PermissionConfigService.savePermissions(context, newState)
-            addLog("Permissions", "Added $mode rule for $action: $cleanPattern")
-        }
-    }
-
-    fun updatePermissionRule(context: Context, action: String, oldPattern: String, newPattern: String, newMode: String) {
-        viewModelScope.launch {
-            val current = mutablePermissionState.value
-            val cleanOld = oldPattern.trim()
-            val cleanNew = newPattern.trim()
-            if (cleanNew.isBlank()) return@launch
-            val updated = current.rules.map {
-                if (it.action == action && it.pattern == cleanOld) PermissionRule(action, cleanNew, newMode) else it
-            }
-            val newState = current.copy(rules = updated)
-            mutablePermissionState.value = newState
-            PermissionConfigService.savePermissions(context, newState)
-            addLog("Permissions", "Updated rule for $action: $cleanNew ($newMode)")
-        }
-    }
-
-    fun removePermissionRule(context: Context, action: String, pattern: String) {
-        viewModelScope.launch {
-            val current = mutablePermissionState.value
-            val cleanPattern = pattern.trim()
-            val updated = current.rules.filterNot { it.action == action && it.pattern == cleanPattern }
-            val newState = current.copy(rules = updated)
-            mutablePermissionState.value = newState
-            PermissionConfigService.savePermissions(context, newState)
-            addLog("Permissions", "Removed rule for $action: $cleanPattern")
-        }
-    }
-
-    private val mutableInstalledRulesList = MutableStateFlow<List<RuleItem>>(emptyList())
-    val installedRulesList: StateFlow<List<RuleItem>> = mutableInstalledRulesList.asStateFlow()
-
-    private val mutableInstalledSkills = MutableStateFlow<List<CustomizationItem>>(emptyList())
-    val installedSkills: StateFlow<List<CustomizationItem>> = mutableInstalledSkills.asStateFlow()
-
-    private val mutableInstalledPlugins = MutableStateFlow<List<CustomizationItem>>(emptyList())
-    val installedPlugins: StateFlow<List<CustomizationItem>> = mutableInstalledPlugins.asStateFlow()
-
-    private val mutableCustomizationTracks = MutableStateFlow<Map<String, CustomizationRepoTrack>>(emptyMap())
-    val customizationTracks: StateFlow<Map<String, CustomizationRepoTrack>> = mutableCustomizationTracks.asStateFlow()
-
-    private val mutableIsCheckingCustomizationUpdates = MutableStateFlow(false)
-    val isCheckingCustomizationUpdates: StateFlow<Boolean> = mutableIsCheckingCustomizationUpdates.asStateFlow()
-
-    private val mutableSkillsCatalogue = MutableStateFlow<List<SkillCatalogueItem>>(getDefaultSkillsCatalogue())
-    val skillsCatalogue: StateFlow<List<SkillCatalogueItem>> = mutableSkillsCatalogue.asStateFlow()
-
-    private val mutablePluginsCatalogue = MutableStateFlow<List<SkillCatalogueItem>>(getDefaultPluginsCatalogue())
-    val pluginsCatalogue: StateFlow<List<SkillCatalogueItem>> = mutablePluginsCatalogue.asStateFlow()
-
-    private val mutableIsFetchingCatalogue = MutableStateFlow(false)
-    val isFetchingCatalogue: StateFlow<Boolean> = mutableIsFetchingCatalogue.asStateFlow()
-
-    private val mutableTokenUsageStats = MutableStateFlow(TokenUsageStats(0, emptyList(), 0, emptyList()))
-    val tokenUsageStats: StateFlow<TokenUsageStats> = mutableTokenUsageStats.asStateFlow()
-
-    fun refreshRules(context: Context) {
-        viewModelScope.launch {
-            val rules = RuleConfigService.loadAllRules(context, mutableWorkspacePath.value)
-            mutableInstalledRulesList.value = rules
-        }
-    }
-
-    fun saveRuleContent(context: Context, filePath: String, content: String, onComplete: ((Boolean) -> Unit)? = null) {
-        viewModelScope.launch {
-            val ok = RuleConfigService.saveRule(filePath, content)
-            if (ok) {
-                refreshRules(context)
-                addLog("Rules", "Rule saved: ${File(filePath).name}")
-            }
-            onComplete?.invoke(ok)
-        }
-    }
-
-    fun createRule(context: Context, ruleName: String, content: String, onComplete: ((Boolean) -> Unit)? = null) {
-        viewModelScope.launch {
-            val ok = RuleConfigService.createNewRule(context, ruleName, content)
-            if (ok) {
-                refreshRules(context)
-                addLog("Rules", "Created new rule: $ruleName")
-            }
-            onComplete?.invoke(ok)
-        }
-    }
-
-    fun deleteRule(context: Context, filePath: String, onComplete: ((Boolean) -> Unit)? = null) {
-        viewModelScope.launch {
-            val ok = RuleConfigService.deleteRule(filePath)
-            if (ok) {
-                refreshRules(context)
-                addLog("Rules", "Deleted rule: ${File(filePath).name}")
-            }
-            onComplete?.invoke(ok)
-        }
-    }
-
-    private val mutableMcpServers = MutableStateFlow<List<McpServerItem>>(emptyList())
-    val mcpServers: StateFlow<List<McpServerItem>> = mutableMcpServers.asStateFlow()
-
-    fun refreshMcpServers(context: Context) {
-        viewModelScope.launch {
-            val list = McpConfigService.loadMcpServers(context)
-            mutableMcpServers.value = list
-        }
-    }
-
-    fun saveMcpServer(context: Context, server: McpServerItem, onComplete: ((Boolean) -> Unit)? = null) {
-        viewModelScope.launch {
-            val ok = McpConfigService.saveMcpServer(context, server)
-            if (ok) {
-                refreshMcpServers(context)
-                addLog("MCP", "Configured MCP server: ${server.name}")
-            }
-            onComplete?.invoke(ok)
-        }
-    }
-
-    fun deleteMcpServer(context: Context, serverName: String, onComplete: ((Boolean) -> Unit)? = null) {
-        viewModelScope.launch {
-            val ok = McpConfigService.deleteMcpServer(context, serverName)
-            if (ok) {
-                refreshMcpServers(context)
-                addLog("MCP", "Removed MCP server: $serverName")
-            }
-            onComplete?.invoke(ok)
-        }
-    }
-
-    suspend fun loadRawMcpConfig(context: Context): String {
-        return McpConfigService.loadRawConfig(context)
-    }
-
-    fun saveRawMcpConfig(context: Context, rawJson: String, onComplete: ((Boolean) -> Unit)? = null) {
-        viewModelScope.launch {
-            val ok = McpConfigService.saveRawConfig(context, rawJson)
-            if (ok) {
-                refreshMcpServers(context)
-                addLog("MCP", "Updated raw mcp_config.json")
-            }
-            onComplete?.invoke(ok)
-        }
-    }
-
+    fun calculateTokenUsage(context: Context): TokenUsageStats = customizationCatalogueDelegate.calculateTokenUsage(context)
     private val mutableOpenTerminalRequest = MutableStateFlow<String?>(null)
     val openTerminalRequest: StateFlow<String?> = mutableOpenTerminalRequest.asStateFlow()
 
@@ -1121,38 +922,6 @@ class AntigravityViewModel : ViewModel() {
 
     fun consumeOpenTerminalRequest() {
         mutableOpenTerminalRequest.value = null
-    }
-
-    fun refreshSkills(context: Context) {
-        loadCachedCatalogue(context)
-        fetchRemoteCatalogue(context, force = false)
-        viewModelScope.launch(Dispatchers.IO) {
-            val skills = getInstalledSkills(context)
-            mutableInstalledSkills.value = skills
-            val stats = calculateTokenUsage(context)
-            mutableTokenUsageStats.value = stats
-        }
-        refreshRules(context)
-    }
-
-    fun refreshPlugins(context: Context) {
-        loadCachedCatalogue(context)
-        fetchRemoteCatalogue(context, force = false)
-        viewModelScope.launch(Dispatchers.IO) {
-            val plugins = getInstalledPlugins(context)
-            mutableInstalledPlugins.value = plugins
-            val skills = getInstalledSkills(context)
-            mutableInstalledSkills.value = skills
-            val stats = calculateTokenUsage(context)
-            mutableTokenUsageStats.value = stats
-        }
-        refreshRules(context)
-    }
-
-    val activeInstallProgress = MutableStateFlow<CustomizationInstallProgress?>(null)
-
-    fun dismissInstallProgress() {
-        activeInstallProgress.value = null
     }
 
     val coreUpdateState = MutableStateFlow(CoreEngineUpdateState())
@@ -1207,12 +976,12 @@ class AntigravityViewModel : ViewModel() {
             TerminalLine(text = "$ " + context.getString(R.string.core_update_cmd_title), isCommand = true),
             TerminalLine(text = context.getString(R.string.core_update_checking))
         )
-        activeInstallProgress.value = CustomizationInstallProgress(
+        customizationInstallerDelegate.setActiveInstallProgressDirect(CustomizationInstallProgress(
             title = context.getString(R.string.core_update_dialog_title),
             command = "agy-upgrade core ($latestVer)",
             lines = initialLines,
             isRunning = true
-        )
+        ))
 
         viewModelScope.launch(Dispatchers.IO) {
             val outputLines = mutableListOf<TerminalLine>().apply { addAll(initialLines) }
@@ -1221,9 +990,9 @@ class AntigravityViewModel : ViewModel() {
                 state = state,
                 onOutputLine = { line ->
                     synchronized(outputLines) { outputLines.add(line) }
-                    activeInstallProgress.value = activeInstallProgress.value?.copy(
+                    customizationInstallerDelegate.setActiveInstallProgressDirect(activeInstallProgress.value?.copy(
                         lines = outputLines.toList()
-                    )
+                    ))
                 },
                 onSuccess = { newVer ->
                     coreUpdateState.value = coreUpdateState.value.copy(
@@ -1231,1840 +1000,24 @@ class AntigravityViewModel : ViewModel() {
                         isUpdateAvailable = false,
                         latestVersion = newVer
                     )
-                    activeInstallProgress.value = activeInstallProgress.value?.copy(
+                    customizationInstallerDelegate.setActiveInstallProgressDirect(activeInstallProgress.value?.copy(
                         lines = outputLines.toList(),
                         isRunning = false,
                         isSuccess = true
-                    )
+                    ))
                     if (engineStatus.value.isRunning) {
                         restartCoreService(context)
                     }
                 },
                 onError = { err ->
-                    activeInstallProgress.value = activeInstallProgress.value?.copy(
+                    customizationInstallerDelegate.setActiveInstallProgressDirect(activeInstallProgress.value?.copy(
                         lines = outputLines.toList(),
                         isRunning = false,
                         isSuccess = false
-                    )
+                    ))
                 }
             )
         }
-    }
-
-    val isInspectingRepo = MutableStateFlow(false)
-    val discoveredRepoSkills = MutableStateFlow<List<DiscoveredRepoSkill>>(emptyList())
-    val repoInspectionError = MutableStateFlow<String?>(null)
-    private var cachedInspectedRepoDir: File? = null
-
-    fun clearRepoInspection() {
-        isInspectingRepo.value = false
-        discoveredRepoSkills.value = emptyList()
-        repoInspectionError.value = null
-        try {
-            cachedInspectedRepoDir?.deleteRecursively()
-        } catch (e: Exception) {}
-        cachedInspectedRepoDir = null
-    }
-
-    fun toggleRepoSkillSelection(skillId: String) {
-        discoveredRepoSkills.value = discoveredRepoSkills.value.map {
-            if (it.id == skillId) it.copy(isSelected = !it.isSelected) else it
-        }
-    }
-
-    fun setAllRepoSkillsSelection(selectAll: Boolean) {
-        discoveredRepoSkills.value = discoveredRepoSkills.value.map {
-            it.copy(isSelected = selectAll)
-        }
-    }
-
-    fun normalizeGitRepoUrl(rawUrl: String): Pair<String, String?> =
-        CustomizationTracker.normalizeGitRepoUrl(rawUrl)
-
-    fun inspectRepoForSkills(context: Context, rawRepoUrl: String) {
-        val (cleanUrl, subDir) = normalizeGitRepoUrl(rawRepoUrl)
-        if (cleanUrl.isBlank()) return
-
-        isInspectingRepo.value = true
-        repoInspectionError.value = null
-        discoveredRepoSkills.value = emptyList()
-
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val stagingDir = File(context.cacheDir, "repo-inspect-${cleanUrl.hashCode().toString().replace("-", "n")}").apply {
-                    deleteRecursively()
-                    mkdirs()
-                }
-                cachedInspectedRepoDir = stagingDir
-
-                val gitEnv = prepareGitEnv(context)
-                val cloneCmd = "${gitEnv}git clone --depth 1 '$cleanUrl' '${stagingDir.absolutePath}'"
-                val exitCode = EngineExecutor.executeCommand(context, cloneCmd, context.filesDir) { line, isErr -> }
-
-                if (exitCode != 0 || !stagingDir.exists()) {
-                    repoInspectionError.value = "Failed to clone repository"
-                    isInspectingRepo.value = false
-                    return@launch
-                }
-
-                val discovered = mutableListOf<DiscoveredRepoSkill>()
-                stagingDir.walkTopDown()
-                    .filter { it.isFile && it.name.equals("SKILL.md", ignoreCase = true) }
-                    .filter { !it.absolutePath.contains("/.git/") }
-                    .forEach { skillFile ->
-                        val skillFolder = skillFile.parentFile ?: stagingDir
-                        val relSubPath = skillFolder.relativeTo(stagingDir).path.replace('\\', '/')
-                        val normSubPath = if (relSubPath == "." || relSubPath.isEmpty()) "" else relSubPath
-
-                        var skillName = skillFolder.name
-                        var skillDesc = ""
-                        try {
-                            val lines = skillFile.readLines().take(50)
-                            var inFrontmatter = false
-                            for (line in lines) {
-                                val trimmed = line.trim()
-                                if (trimmed == "---") {
-                                    if (!inFrontmatter) {
-                                        inFrontmatter = true
-                                    } else {
-                                        break
-                                    }
-                                } else if (inFrontmatter) {
-                                    if (trimmed.startsWith("name:", ignoreCase = true)) {
-                                        val v = trimmed.substringAfter(":").trim().trim('"', '\'')
-                                        if (v.isNotBlank()) skillName = v
-                                    } else if (trimmed.startsWith("description:", ignoreCase = true)) {
-                                        val v = trimmed.substringAfter(":").trim().trim('"', '\'')
-                                        if (v.isNotBlank()) skillDesc = v
-                                    }
-                                }
-                            }
-                            if (skillDesc.isBlank()) {
-                                val firstContent = lines.dropWhile { it.trim().startsWith("#") || it.trim() == "---" }
-                                    .firstOrNull { it.isNotBlank() }?.trim() ?: ""
-                                skillDesc = firstContent
-                            }
-                        } catch (e: Exception) {}
-
-                        val safeId = (if (skillName.isNotBlank()) skillName else skillFolder.name)
-                            .lowercase().replace(" ", "-").replace(Regex("[^a-z0-9_-]"), "")
-
-                        discovered.add(
-                            DiscoveredRepoSkill(
-                                id = safeId,
-                                name = if (skillName.isNotBlank()) skillName else skillFolder.name,
-                                description = if (skillDesc.isNotBlank()) skillDesc else "Skill from $cleanUrl",
-                                subPath = normSubPath,
-                                isSelected = true
-                            )
-                        )
-                    }
-
-                if (discovered.isEmpty()) {
-                    repoInspectionError.value = "No skills with SKILL.md found in repository"
-                } else {
-                    discoveredRepoSkills.value = discovered.sortedBy { it.name }
-                }
-            } catch (e: Exception) {
-                repoInspectionError.value = e.localizedMessage ?: "Error inspecting repository"
-            } finally {
-                isInspectingRepo.value = false
-            }
-        }
-    }
-
-    private fun prepareGitEnv(context: Context): String =
-        CustomizationTracker.prepareGitEnv(context)
-
-    private fun ensureSkillFiles(skillDir: File, homeSkillDir: File, id: String, name: String, desc: String) =
-        CustomizationTracker.ensureSkillFiles(skillDir, homeSkillDir, id, name, desc)
-
-    private fun ensurePluginFiles(pluginDir: File, homePluginDir: File, id: String, name: String, desc: String) =
-        CustomizationTracker.ensurePluginFiles(pluginDir, homePluginDir, id, name, desc)
-
-    fun installSkillViaTerminal(context: Context, skillItem: SkillCatalogueItem) {
-        val directConfig = File(context.filesDir, ".gemini/config").apply { mkdirs() }
-        val skillDirFile = File(directConfig, "skills/${skillItem.id}").apply { mkdirs() }
-        val homeSkillDirFile = File(context.filesDir, "home/.gemini/config/skills/${skillItem.id}").apply { mkdirs() }
-        val skillDir = skillDirFile.absolutePath
-        val homeSkillDir = homeSkillDirFile.absolutePath
-        val builtinDir = getBuiltinSkillsDir(context)
-        val builtinSrc = File(builtinDir, skillItem.id)
-        val builtinSrcAlt = File(builtinDir, skillItem.id.replace("-", "_"))
-        val tmpCloneDir = File(context.cacheDir, "skill-clone-${skillItem.id}").absolutePath
-        val gitEnvSetup = prepareGitEnv(context)
-        val (cleanUrl, extractedSub) = normalizeGitRepoUrl(skillItem.repoUrl)
-        val effectiveSubPath = skillItem.subPath?.ifBlank { null } ?: extractedSub
-
-        val cmd = buildString {
-            append(gitEnvSetup)
-            append("rm -rf '$tmpCloneDir' '$skillDir' && mkdir -p '$skillDir' '$homeSkillDir' && ")
-            append("echo '[Agent] Starting installation of skill ${skillItem.name}...' && ")
-            if (builtinSrc.exists() && builtinSrc.isDirectory) {
-                append("echo '[Agent] Deploying built-in skill assets...' && ")
-                append("cp -r '${builtinSrc.absolutePath}'/* '$skillDir/' 2>/dev/null; cp -r '${builtinSrc.absolutePath}'/* '$homeSkillDir/' 2>/dev/null && ")
-            } else if (builtinSrcAlt.exists() && builtinSrcAlt.isDirectory) {
-                append("echo '[Agent] Deploying built-in skill assets...' && ")
-                append("cp -r '${builtinSrcAlt.absolutePath}'/* '$skillDir/' 2>/dev/null; cp -r '${builtinSrcAlt.absolutePath}'/* '$homeSkillDir/' 2>/dev/null && ")
-            } else if (cleanUrl.isNotBlank()) {
-                append("echo '[Agent] Cloning skill from $cleanUrl...' && ")
-                append("git clone --depth 1 '$cleanUrl' '$tmpCloneDir' && ")
-                append("echo '[Agent] Extracting and setting up skill files...' && ")
-                if (!effectiveSubPath.isNullOrBlank()) {
-                    append("if [ -d '$tmpCloneDir/${effectiveSubPath.trim('/')}' ]; then cp -r '$tmpCloneDir/${effectiveSubPath.trim('/')}'/* '$skillDir/' 2>/dev/null; else cp -r '$tmpCloneDir'/* '$skillDir/' 2>/dev/null; fi && ")
-                } else {
-                    val rootSkillsDir = File(directConfig, "skills").absolutePath
-                    val homeSkillsDir = File(context.filesDir, "home/.gemini/config/skills").absolutePath
-                    append("cp -r '$tmpCloneDir'/* '$skillDir/' 2>/dev/null && ")
-                    append("for sdir in '$tmpCloneDir/skills' '$tmpCloneDir/.gemini/skills' '$tmpCloneDir/plugin/skills' '$tmpCloneDir/.agents/skills'; do ")
-                    append("if [ -d \"${'$'}sdir\" ]; then ")
-                    append("echo '[Agent] Unpacking skills from repository...' && ")
-                    append("cp -r \"${'$'}sdir/\"* '$rootSkillsDir/' 2>/dev/null; ")
-                    append("cp -r \"${'$'}sdir/\"* '$homeSkillsDir/' 2>/dev/null; fi; done && ")
-                }
-                append("rm -rf '$tmpCloneDir' && ")
-            } else {
-                val slopTmp = File(context.cacheDir, "slop-tmp-${skillItem.id}").absolutePath
-                append("echo '[Agent] Sourcing skill from repository...' && ")
-                append("(cp -r '${context.filesDir.absolutePath}/.gemini/config/plugins/antislop/skills/${skillItem.id}'/* '$skillDir/' 2>/dev/null || ")
-                append("(rm -rf '$slopTmp' && git clone --depth 1 https://github.com/miqdadbadjuber/anti-slop.git '$slopTmp' && cp -r '$slopTmp/skills/${skillItem.id}'/* '$skillDir/' 2>/dev/null && rm -rf '$slopTmp')) && ")
-            }
-            append("if [ -d '$skillDir/scripts' ]; then chmod +x '$skillDir'/scripts/* 2>/dev/null || true; fi && ")
-            append("cp -r '$skillDir'/* '$homeSkillDir/' 2>/dev/null && ")
-            append("echo '[Agent] Running agy-fix-paths...' && ")
-            append("agy-fix-paths '$skillDir' 2>/dev/null || true && ")
-            append("echo '[Agent] Skill ${skillItem.name} successfully installed and ready!'")
-        }
-
-        val initialLines = listOf(TerminalLine(text = "$ Installing skill ${skillItem.name}...", isCommand = true))
-        activeInstallProgress.value = CustomizationInstallProgress(
-            title = skillItem.name,
-            command = cmd,
-            lines = initialLines,
-            isRunning = true
-        )
-
-        viewModelScope.launch(Dispatchers.IO) {
-            val outputLines = mutableListOf<TerminalLine>().apply { addAll(initialLines) }
-            val cleanRegex = Regex("(?:\u001B\\[[0-?]*[ -/]*[@-~]|\u001B\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)|\u001B[@-Z\\\\-_]|\r)")
-
-            val exitCode = EngineExecutor.executeCommandWithUpdates(context, cmd, context.filesDir) { line, isErr, isUpdate ->
-                val clean = line.replace(cleanRegex, "").trimEnd('\r')
-                if (clean.isNotEmpty()) {
-                    val isGitInfo = clean.startsWith("Cloning into", ignoreCase = true) ||
-                            clean.startsWith("remote:", ignoreCase = true) ||
-                            clean.startsWith("Receiving objects", ignoreCase = true) ||
-                            clean.startsWith("Resolving deltas", ignoreCase = true) ||
-                            clean.startsWith("Updating files", ignoreCase = true) ||
-                            clean.startsWith("Note: checking out", ignoreCase = true) ||
-                            clean.startsWith("HEAD is now at", ignoreCase = true) ||
-                            clean.startsWith("From https://", ignoreCase = true) ||
-                            clean.startsWith("Already up to date", ignoreCase = true)
-                    val isWarning = clean.startsWith("warning:", ignoreCase = true)
-                    val isRealError = !isWarning && (clean.contains("error:", ignoreCase = true) ||
-                            clean.contains("fatal:", ignoreCase = true) ||
-                            clean.contains("Permission denied", ignoreCase = true) ||
-                            (clean.contains("failed", ignoreCase = true) && !clean.contains("0 failed", ignoreCase = true)))
-                    val isError = if (isGitInfo || isWarning) false else (isErr || isRealError)
-                    synchronized(outputLines) {
-                        if (isUpdate && outputLines.isNotEmpty() && !outputLines.last().isCommand) {
-                            outputLines[outputLines.size - 1] = TerminalLine(text = clean, isError = isError)
-                        } else {
-                            outputLines.add(TerminalLine(text = clean, isError = isError))
-                        }
-                    }
-                    activeInstallProgress.value = activeInstallProgress.value?.copy(
-                        lines = outputLines.toList()
-                    )
-                }
-            }
-            if (exitCode == 0) {
-                ensureSkillFiles(skillDirFile, homeSkillDirFile, skillItem.id, skillItem.name, skillItem.description)
-                if (cleanUrl.isNotBlank()) {
-                    val sha = fetchLatestRepoCommitSha(cleanUrl, effectiveSubPath) ?: ""
-                    registerTrackedCustomization(
-                        context,
-                        CustomizationRepoTrack(
-                            id = skillItem.id,
-                            name = skillItem.name,
-                            repoUrl = cleanUrl,
-                            isPlugin = false,
-                            subPath = effectiveSubPath,
-                            installedSha = sha,
-                            lastChecked = System.currentTimeMillis()
-                        )
-                    )
-                }
-            }
-            refreshSkills(context)
-            activeInstallProgress.value = activeInstallProgress.value?.copy(
-                isRunning = false,
-                isSuccess = (exitCode == 0)
-            )
-        }
-    }
-
-    fun installPluginViaTerminal(context: Context, pluginItem: SkillCatalogueItem) {
-        val directConfig = File(context.filesDir, ".gemini/config").apply { mkdirs() }
-        val pDirFile = File(directConfig, "plugins/${pluginItem.id}").apply { mkdirs() }
-        val pHomeDirFile = File(context.filesDir, "home/.gemini/config/plugins/${pluginItem.id}").apply { mkdirs() }
-        val pluginDir = pDirFile.absolutePath
-        val homePluginDir = pHomeDirFile.absolutePath
-        val tmpDir = File(context.cacheDir, "plugin-clone-${pluginItem.id}").absolutePath
-        val gitEnvSetup = prepareGitEnv(context)
-        val (cleanUrl, extractedSub) = normalizeGitRepoUrl(pluginItem.repoUrl)
-        val effectiveSubPath = pluginItem.subPath?.ifBlank { null } ?: extractedSub
-
-        val rawCmd = when (pluginItem.id.lowercase()) {
-            "rtk" -> {
-                ensurePluginFiles(pDirFile, pHomeDirFile, "rtk", "RTK", "Rust Token Killer")
-                val rtkRuleFile = File(pDirFile, "rules/AGENTS.md")
-                val rtkRuleContent = "# Command output\n\nCommand output here is condensed to save tokens, keeping every signal and dropping costly noise. Treat it as the complete result: run commands normally, and batch related commands into one call to avoid extra turns. Truncated results state their recovery path in their own output. Re-run a command as `rtk bypass <cmd>` only when its result is unusable: empty when output was clearly expected, contradicting its exit code, or garbled.\n"
-                try {
-                    File(pDirFile, "rules").mkdirs()
-                    File(pHomeDirFile, "rules").mkdirs()
-                    rtkRuleFile.writeText(rtkRuleContent)
-                    File(pHomeDirFile, "rules/AGENTS.md").writeText(rtkRuleContent)
-                } catch (e: Exception) {}
-
-                val usrBinRtk = File(context.filesDir, "usr/bin/rtk")
-                val runtimeRtk = File(context.filesDir, "runtime/bin/rtk")
-                if (!usrBinRtk.exists() && runtimeRtk.exists()) {
-                    try {
-                        runtimeRtk.copyTo(usrBinRtk, overwrite = true)
-                        usrBinRtk.setExecutable(true, false)
-                    } catch (e: Exception) {}
-                }
-                try { usrBinRtk.setExecutable(true, false) } catch (e: Exception) {}
-                val usrBinPath = usrBinRtk.absolutePath
-                val runtimeBinPath = runtimeRtk.absolutePath
-                val rtkDownloadUrl = "https://github.com/KuatoDev/antigravity-bootstrap/releases/download/core-v1/rtk"
-
-                "echo '[Agent] Preparing environment for RTK plugin...' && mkdir -p '$pluginDir/rules' '$homePluginDir/rules' && if ! command -v rtk >/dev/null 2>&1; then if [ -f '$runtimeBinPath' ]; then cp '$runtimeBinPath' '$usrBinPath' 2>/dev/null && chmod +x '$usrBinPath' 2>/dev/null; elif [ -f '$usrBinPath' ]; then chmod +x '$usrBinPath' 2>/dev/null; else echo '[Agent] Downloading RTK binary from release payload...' && curl -sSL --retry 3 -o '$usrBinPath' '$rtkDownloadUrl' && chmod +x '$usrBinPath' 2>/dev/null; fi; fi && if command -v rtk >/dev/null 2>&1; then echo '[Agent] Initializing RTK for Antigravity agent...' && rtk init --agent antigravity --global --auto-patch 2>&1 || true && cp -r '$pluginDir'/* '$homePluginDir/' 2>/dev/null; agy-fix-paths '$pluginDir' 2>/dev/null || true; echo \"[Agent] Verified: $(rtk --version 2>&1)\" && echo '[Agent] RTK plugin installed and verified!'; else echo '[Agent Error] Failed to install or download RTK binary.'; exit 1; fi"
-            }
-            "antislop" -> {
-                "echo '[Agent] Preparing environment for Anti-Slop plugin...' && rm -rf '$tmpDir' '$pluginDir' && mkdir -p '$pluginDir' '$homePluginDir' && echo '[Agent] Cloning Anti-Slop repository...' && git clone --depth 1 https://github.com/miqdadbadjuber/anti-slop.git '$tmpDir' && echo '[Agent] Installing plugin files and rules...' && cp -r '$tmpDir'/* '$pluginDir/' 2>/dev/null && if [ -f '$pluginDir/rules/antislop.md' ] && [ ! -f '$pluginDir/rules/AGENTS.md' ]; then cp '$pluginDir/rules/antislop.md' '$pluginDir/rules/AGENTS.md'; fi && cp -r '$pluginDir'/* '$homePluginDir/' 2>/dev/null && rm -rf '$tmpDir' && echo '[Agent] Running agy-fix-paths...' && agy-fix-paths '$pluginDir' 2>/dev/null || true; echo '[Agent] Plugin Anti-Slop successfully installed and verified!'"
-            }
-            else -> {
-                if (cleanUrl.isNotBlank()) {
-                    val sub = effectiveSubPath?.trim('/') ?: ""
-                    val extractCmd = if (sub.isNotBlank()) {
-                        "if [ -d '$tmpDir/$sub' ]; then cp -r '$tmpDir/$sub'/* '$pluginDir/' 2>/dev/null; else cp -r '$tmpDir'/* '$pluginDir/' 2>/dev/null; fi"
-                    } else {
-                        val rootSkillsDir = File(directConfig, "skills").absolutePath
-                        val homeSkillsDir = File(context.filesDir, "home/.gemini/config/skills").absolutePath
-                        "cp -r '$tmpDir'/* '$pluginDir/' 2>/dev/null && for sdir in '$tmpDir/skills' '$tmpDir/.gemini/skills' '$tmpDir/plugin/skills' '$tmpDir/.agents/skills'; do if [ -d \"${'$'}sdir\" ]; then echo '[Agent] Unpacking skills from repository...' && cp -r \"${'$'}sdir/\"* '$rootSkillsDir/' 2>/dev/null; cp -r \"${'$'}sdir/\"* '$homeSkillsDir/' 2>/dev/null; fi; done"
-                    }
-                    val rulesSetupCmd = "if [ -d '$pluginDir/rules' ] && [ ! -f '$pluginDir/rules/AGENTS.md' ]; then FIRST_MD=$(find '$pluginDir/rules' -maxdepth 1 -name \"*.md\" 2>/dev/null | head -n 1); if [ -n \"${'$'}FIRST_MD\" ]; then cp \"${'$'}FIRST_MD\" '$pluginDir/rules/AGENTS.md'; fi; fi && if [ ! -f '$pluginDir/rules/AGENTS.md' ]; then mkdir -p '$pluginDir/rules' && if [ -f '$pluginDir/AGENTS.md' ]; then cp '$pluginDir/AGENTS.md' '$pluginDir/rules/AGENTS.md'; elif [ -f '$pluginDir/GEMINI.md' ]; then cp '$pluginDir/GEMINI.md' '$pluginDir/rules/AGENTS.md'; elif [ -f '$pluginDir/CLAUDE.md' ]; then cp '$pluginDir/CLAUDE.md' '$pluginDir/rules/AGENTS.md'; elif [ -f '$pluginDir/README.md' ]; then cp '$pluginDir/README.md' '$pluginDir/rules/AGENTS.md'; fi; fi && if [ ! -f '$pluginDir/plugin.json' ]; then if [ -f '$pluginDir/.antigravity-plugin/plugin.json' ]; then cp '$pluginDir/.antigravity-plugin/plugin.json' '$pluginDir/plugin.json'; elif [ -f '$pluginDir/.claude-plugin/plugin.json' ]; then cp '$pluginDir/.claude-plugin/plugin.json' '$pluginDir/plugin.json'; fi; fi"
-                    "echo '[Agent] Starting installation of plugin ${pluginItem.name}...' && rm -rf '$tmpDir' '$pluginDir' && mkdir -p '$pluginDir' '$homePluginDir' && echo '[Agent] Cloning repository from $cleanUrl...' && git clone --depth 1 '$cleanUrl' '$tmpDir' && echo '[Agent] Inspecting plugin repository structure and dependencies...' && $extractCmd && if [ -f '$pluginDir/requirements.txt' ]; then echo '[Agent] Installing Python dependencies...' && pip install -r '$pluginDir/requirements.txt' 2>/dev/null || true; fi && $rulesSetupCmd && cp -r '$pluginDir'/* '$homePluginDir/' 2>/dev/null && rm -rf '$tmpDir' && echo '[Agent] Running agy-fix-paths...' && agy-fix-paths '$pluginDir' 2>/dev/null || true; echo '[Agent] Plugin ${pluginItem.name} successfully installed and ready!'"
-                } else {
-                    ensurePluginFiles(pDirFile, pHomeDirFile, pluginItem.id, pluginItem.name, pluginItem.description)
-                    "echo '[Agent] Installing standalone plugin ${pluginItem.name}...' && mkdir -p '$pluginDir/rules' '$homePluginDir/rules' && cp -r '$pluginDir'/* '$homePluginDir/' 2>/dev/null && agy-fix-paths '$pluginDir' 2>/dev/null || true && echo '[Agent] Plugin ${pluginItem.name} installed!'"
-                }
-            }
-        }
-        val cmd = gitEnvSetup + rawCmd
-
-        val initialLines = listOf(TerminalLine(text = "$ Installing plugin ${pluginItem.name}...", isCommand = true))
-        activeInstallProgress.value = CustomizationInstallProgress(
-            title = pluginItem.name,
-            command = cmd,
-            lines = initialLines,
-            isRunning = true
-        )
-
-        viewModelScope.launch(Dispatchers.IO) {
-            val outputLines = mutableListOf<TerminalLine>().apply { addAll(initialLines) }
-            val cleanRegex = Regex("(?:\u001B\\[[0-?]*[ -/]*[@-~]|\u001B\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)|\u001B[@-Z\\\\-_]|\r)")
-
-            val exitCode = EngineExecutor.executeCommandWithUpdates(context, cmd, context.filesDir) { line, isErr, isUpdate ->
-                val clean = line.replace(cleanRegex, "").trimEnd('\r')
-                if (clean.isNotEmpty()) {
-                    val isGitInfo = clean.startsWith("Cloning into", ignoreCase = true) ||
-                            clean.startsWith("remote:", ignoreCase = true) ||
-                            clean.startsWith("Receiving objects", ignoreCase = true) ||
-                            clean.startsWith("Resolving deltas", ignoreCase = true) ||
-                            clean.startsWith("Updating files", ignoreCase = true) ||
-                            clean.startsWith("Note: checking out", ignoreCase = true) ||
-                            clean.startsWith("HEAD is now at", ignoreCase = true) ||
-                            clean.startsWith("From https://", ignoreCase = true) ||
-                            clean.startsWith("Already up to date", ignoreCase = true)
-                    val isWarning = clean.startsWith("warning:", ignoreCase = true)
-                    val isRealError = !isWarning && (clean.contains("error:", ignoreCase = true) ||
-                            clean.contains("fatal:", ignoreCase = true) ||
-                            clean.contains("Permission denied", ignoreCase = true) ||
-                            (clean.contains("failed", ignoreCase = true) && !clean.contains("0 failed", ignoreCase = true)))
-                    val isError = if (isGitInfo || isWarning) false else (isErr || isRealError)
-                    synchronized(outputLines) {
-                        if (isUpdate && outputLines.isNotEmpty() && !outputLines.last().isCommand) {
-                            outputLines[outputLines.size - 1] = TerminalLine(text = clean, isError = isError)
-                        } else {
-                            outputLines.add(TerminalLine(text = clean, isError = isError))
-                        }
-                    }
-                    activeInstallProgress.value = activeInstallProgress.value?.copy(
-                        lines = outputLines.toList()
-                    )
-                }
-            }
-            if (exitCode == 0) {
-                ensurePluginFiles(pDirFile, pHomeDirFile, pluginItem.id, pluginItem.name, pluginItem.description)
-                if (cleanUrl.isNotBlank()) {
-                    val sha = fetchLatestRepoCommitSha(cleanUrl, effectiveSubPath) ?: ""
-                    registerTrackedCustomization(
-                        context,
-                        CustomizationRepoTrack(
-                            id = pluginItem.id,
-                            name = pluginItem.name,
-                            repoUrl = cleanUrl,
-                            isPlugin = true,
-                            subPath = effectiveSubPath,
-                            installedSha = sha,
-                            lastChecked = System.currentTimeMillis()
-                        )
-                    )
-                }
-            }
-            refreshPlugins(context)
-            activeInstallProgress.value = activeInstallProgress.value?.copy(
-                isRunning = false,
-                isSuccess = (exitCode == 0)
-            )
-        }
-    }
-
-    fun updateCustomizationViaTerminal(context: Context, track: CustomizationRepoTrack) {
-        val directConfig = File(context.filesDir, ".gemini/config").apply { mkdirs() }
-        val targetDir = if (track.isPlugin) {
-            File(directConfig, "plugins/${track.id}").absolutePath
-        } else {
-            File(directConfig, "skills/${track.id}").absolutePath
-        }
-        val homeTargetDir = if (track.isPlugin) {
-            File(context.filesDir, "home/.gemini/config/plugins/${track.id}").absolutePath
-        } else {
-            File(context.filesDir, "home/.gemini/config/skills/${track.id}").absolutePath
-        }
-
-        val typeLabel = if (track.isPlugin) "Plugin" else "Skill"
-        val tmpCloneDir = File(context.cacheDir, "update-${track.id}").absolutePath
-        val gitEnvSetup = prepareGitEnv(context)
-
-        val usrRtkPath = File(context.filesDir, "usr/bin/rtk").absolutePath
-        val rtkDownloadUrl = "https://github.com/KuatoDev/antigravity-bootstrap/releases/download/core-v1/rtk"
-        val rawCmd = if (track.isPlugin && track.id.lowercase() == "rtk") {
-            "echo '[RTK] Updating RTK configuration...' && if [ ! -f '$usrRtkPath' ]; then echo '[RTK] Downloading RTK binary from release payload...' && curl -sSL --retry 3 -o '$usrRtkPath' '$rtkDownloadUrl'; fi && chmod +x '$usrRtkPath' 2>/dev/null && rtk init --agent antigravity --global --auto-patch 2>&1 && cp -r '$targetDir'/* '$homeTargetDir/' 2>/dev/null; agy-fix-paths '$targetDir' 2>/dev/null || true; echo \"[RTK plugin successfully updated: $(rtk --version 2>&1)]\""
-        } else if (track.isPlugin && File(targetDir, ".git").exists()) {
-            "cd '$targetDir' && git pull && cp -r '$targetDir'/* '$homeTargetDir/' 2>/dev/null; agy-fix-paths '$targetDir' 2>/dev/null || true; echo '[$typeLabel ${track.name} successfully updated!]'"
-        } else if (!track.subPath.isNullOrBlank()) {
-            "rm -rf '$tmpCloneDir' && mkdir -p '$targetDir' '$homeTargetDir' && git clone --depth 1 '${track.repoUrl}' '$tmpCloneDir' && cp -r '$tmpCloneDir/${track.subPath.trim('/')}'/* '$targetDir/' 2>/dev/null; cp -r '$targetDir'/* '$homeTargetDir/' 2>/dev/null; rm -rf '$tmpCloneDir'; agy-fix-paths '$targetDir' 2>/dev/null || true; echo '[$typeLabel ${track.name} successfully updated!]'"
-        } else {
-            "rm -rf '$tmpCloneDir' && mkdir -p '$targetDir' '$homeTargetDir' && git clone --depth 1 '${track.repoUrl}' '$tmpCloneDir' && cp -r '$tmpCloneDir'/* '$targetDir/' 2>/dev/null; cp -r '$targetDir'/* '$homeTargetDir/' 2>/dev/null; rm -rf '$tmpCloneDir'; agy-fix-paths '$targetDir' 2>/dev/null || true; echo '[$typeLabel ${track.name} successfully updated!]'"
-        }
-        val cmd = gitEnvSetup + rawCmd
-
-        val initialLines = listOf(TerminalLine(text = "$ Updating $typeLabel ${track.name}...", isCommand = true))
-        activeInstallProgress.value = CustomizationInstallProgress(
-            title = track.name,
-            command = cmd,
-            lines = initialLines,
-            isRunning = true
-        )
-
-        viewModelScope.launch(Dispatchers.IO) {
-            val outputLines = mutableListOf<TerminalLine>().apply { addAll(initialLines) }
-            val cleanRegex = Regex("(?:\u001B\\[[0-?]*[ -/]*[@-~]|\u001B\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)|\u001B[@-Z\\\\-_]|\r)")
-
-            val exitCode = EngineExecutor.executeCommandWithUpdates(context, cmd, context.filesDir) { line, isErr, isUpdate ->
-                val clean = line.replace(cleanRegex, "").trimEnd('\r')
-                if (clean.isNotEmpty()) {
-                    val isGitInfo = clean.startsWith("Cloning into", ignoreCase = true) ||
-                            clean.startsWith("remote:", ignoreCase = true) ||
-                            clean.startsWith("Receiving objects", ignoreCase = true) ||
-                            clean.startsWith("Resolving deltas", ignoreCase = true) ||
-                            clean.startsWith("Updating files", ignoreCase = true) ||
-                            clean.startsWith("Note: checking out", ignoreCase = true) ||
-                            clean.startsWith("HEAD is now at", ignoreCase = true) ||
-                            clean.startsWith("From https://", ignoreCase = true) ||
-                            clean.startsWith("Already up to date", ignoreCase = true)
-                    val isWarning = clean.startsWith("warning:", ignoreCase = true)
-                    val isRealError = !isWarning && (clean.contains("error:", ignoreCase = true) ||
-                            clean.contains("fatal:", ignoreCase = true) ||
-                            clean.contains("Permission denied", ignoreCase = true) ||
-                            (clean.contains("failed", ignoreCase = true) && !clean.contains("0 failed", ignoreCase = true)))
-                    val isError = if (isGitInfo || isWarning) false else (isErr || isRealError)
-                    synchronized(outputLines) {
-                        if (isUpdate && outputLines.isNotEmpty() && !outputLines.last().isCommand) {
-                            outputLines[outputLines.size - 1] = TerminalLine(text = clean, isError = isError)
-                        } else {
-                            outputLines.add(TerminalLine(text = clean, isError = isError))
-                        }
-                    }
-                    activeInstallProgress.value = activeInstallProgress.value?.copy(lines = outputLines.toList())
-                }
-            }
-
-            if (exitCode == 0) {
-                if (track.isPlugin) {
-                    ensurePluginFiles(File(targetDir), File(homeTargetDir), track.id, track.name, "")
-                } else {
-                    ensureSkillFiles(File(targetDir), File(homeTargetDir), track.id, track.name, "")
-                }
-                val currentTracks = getTrackedCustomizations(context).toMutableMap()
-                val updatedSha = track.remoteSha ?: track.installedSha
-                currentTracks[track.id.lowercase()] = track.copy(
-                    installedSha = updatedSha,
-                    hasUpdate = false,
-                    lastChecked = System.currentTimeMillis()
-                )
-                saveTrackedCustomizations(context, currentTracks)
-            }
-            if (track.isPlugin) refreshPlugins(context) else refreshSkills(context)
-            activeInstallProgress.value = activeInstallProgress.value?.copy(
-                isRunning = false,
-                isSuccess = (exitCode == 0)
-            )
-        }
-    }
-
-    fun installCustomFromRepoViaTerminal(
-        context: Context,
-        rawRepoUrl: String,
-        customName: String,
-        subPath: String?,
-        isPlugin: Boolean
-    ) {
-        val (cleanUrl, extractedSub) = normalizeGitRepoUrl(rawRepoUrl)
-        val effectiveSubPath = subPath?.ifBlank { null } ?: extractedSub
-        val safeName = if (customName.isNotBlank()) {
-            customName.trim().lowercase().replace(" ", "-").replace(Regex("[^a-z0-9_-]"), "")
-        } else {
-            val fromSub = effectiveSubPath?.trim('/')?.substringAfterLast('/')
-            if (!fromSub.isNullOrBlank()) fromSub else cleanUrl.substringAfterLast('/').removeSuffix(".git")
-        }
-
-        val directConfig = File(context.filesDir, ".gemini/config").apply { mkdirs() }
-        val targetDir = if (isPlugin) {
-            File(directConfig, "plugins/$safeName").absolutePath
-        } else {
-            File(directConfig, "skills/$safeName").absolutePath
-        }
-        val homeTargetDir = if (isPlugin) {
-            File(context.filesDir, "home/.gemini/config/plugins/$safeName").absolutePath
-        } else {
-            File(context.filesDir, "home/.gemini/config/skills/$safeName").absolutePath
-        }
-        val tmpCloneDir = File(context.cacheDir, "repo-custom-$safeName").absolutePath
-        val typeLabel = if (isPlugin) "Plugin" else "Skill"
-        val gitEnvSetup = prepareGitEnv(context)
-
-        val sub = effectiveSubPath?.trim('/') ?: ""
-        val extractCmd = if (sub.isNotBlank()) {
-            "if [ -d '$tmpCloneDir/$sub' ]; then cp -r '$tmpCloneDir/$sub'/* '$targetDir/' 2>/dev/null; else cp -r '$tmpCloneDir'/* '$targetDir/' 2>/dev/null; fi"
-        } else {
-            val rootSkillsDir = File(directConfig, "skills").absolutePath
-            val homeSkillsDir = File(context.filesDir, "home/.gemini/config/skills").absolutePath
-            "cp -r '$tmpCloneDir'/* '$targetDir/' 2>/dev/null && for sdir in '$tmpCloneDir/skills' '$tmpCloneDir/.gemini/skills' '$tmpCloneDir/plugin/skills' '$tmpCloneDir/.agents/skills'; do if [ -d \"${'$'}sdir\" ]; then echo '[Agent] Unpacking skills from repository...' && cp -r \"${'$'}sdir/\"* '$rootSkillsDir/' 2>/dev/null; cp -r \"${'$'}sdir/\"* '$homeSkillsDir/' 2>/dev/null; fi; done"
-        }
-        val rawCmd = buildString {
-            append("echo '[Agent] Installing $typeLabel $safeName from $cleanUrl...' && ")
-            append("rm -rf '$tmpCloneDir' '$targetDir' && mkdir -p '$targetDir' '$homeTargetDir' && ")
-            append("echo '[Agent] Cloning repository...' && ")
-            append("git clone --depth 1 '$cleanUrl' '$tmpCloneDir' && ")
-            append("echo '[Agent] Analyzing repository contents and structure...' && ")
-            append("$extractCmd && ")
-            append("rm -rf '$tmpCloneDir' && ")
-            if (isPlugin) {
-                append("if [ -f '$targetDir/requirements.txt' ]; then ")
-                append("echo '[Agent] Installing Python requirements...' && ")
-                append("pip install -r '$targetDir/requirements.txt' 2>/dev/null || true; fi && ")
-                append("if [ -d '$targetDir/rules' ] && [ ! -f '$targetDir/rules/AGENTS.md' ]; then ")
-                append("FIRST_MD=$(find '$targetDir/rules' -maxdepth 1 -name \"*.md\" 2>/dev/null | head -n 1); ")
-                append("if [ -n \"${'$'}FIRST_MD\" ]; then cp \"${'$'}FIRST_MD\" '$targetDir/rules/AGENTS.md'; fi; fi && ")
-                append("if [ ! -f '$targetDir/rules/AGENTS.md' ]; then mkdir -p '$targetDir/rules' && if [ -f '$targetDir/AGENTS.md' ]; then cp '$targetDir/AGENTS.md' '$targetDir/rules/AGENTS.md'; elif [ -f '$targetDir/GEMINI.md' ]; then cp '$targetDir/GEMINI.md' '$targetDir/rules/AGENTS.md'; elif [ -f '$targetDir/CLAUDE.md' ]; then cp '$targetDir/CLAUDE.md' '$targetDir/rules/AGENTS.md'; elif [ -f '$targetDir/README.md' ]; then cp '$targetDir/README.md' '$targetDir/rules/AGENTS.md'; fi; fi && ")
-                append("if [ ! -f '$targetDir/plugin.json' ]; then if [ -f '$targetDir/.antigravity-plugin/plugin.json' ]; then cp '$targetDir/.antigravity-plugin/plugin.json' '$targetDir/plugin.json'; elif [ -f '$targetDir/.claude-plugin/plugin.json' ]; then cp '$targetDir/.claude-plugin/plugin.json' '$targetDir/plugin.json'; fi; fi && ")
-            } else {
-                append("if [ -d '$targetDir/scripts' ]; then chmod +x '$targetDir'/scripts/* 2>/dev/null || true; fi && ")
-            }
-            append("cp -r '$targetDir'/* '$homeTargetDir/' 2>/dev/null && ")
-            append("echo '[Agent] Running agy-fix-paths...' && ")
-            append("agy-fix-paths '$targetDir' 2>/dev/null || true; ")
-            append("echo '[Agent] $typeLabel $safeName successfully installed and verified!'")
-        }
-        val cmd = gitEnvSetup + rawCmd
-
-        val initialLines = listOf(TerminalLine(text = "$ Installing $typeLabel $safeName from $cleanUrl...", isCommand = true))
-        activeInstallProgress.value = CustomizationInstallProgress(
-            title = safeName,
-            command = cmd,
-            lines = initialLines,
-            isRunning = true
-        )
-
-        viewModelScope.launch(Dispatchers.IO) {
-            val outputLines = mutableListOf<TerminalLine>().apply { addAll(initialLines) }
-            val cleanRegex = Regex("(?:\u001B\\[[0-?]*[ -/]*[@-~]|\u001B\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)|\u001B[@-Z\\\\-_]|\r)")
-
-            val exitCode = EngineExecutor.executeCommandWithUpdates(context, cmd, context.filesDir) { line, isErr, isUpdate ->
-                val clean = line.replace(cleanRegex, "").trimEnd('\r')
-                if (clean.isNotEmpty()) {
-                    val isGitInfo = clean.startsWith("Cloning into", ignoreCase = true) ||
-                            clean.startsWith("remote:", ignoreCase = true) ||
-                            clean.startsWith("Receiving objects", ignoreCase = true) ||
-                            clean.startsWith("Resolving deltas", ignoreCase = true) ||
-                            clean.startsWith("Updating files", ignoreCase = true) ||
-                            clean.startsWith("Note: checking out", ignoreCase = true) ||
-                            clean.startsWith("HEAD is now at", ignoreCase = true) ||
-                            clean.startsWith("From https://", ignoreCase = true) ||
-                            clean.startsWith("Already up to date", ignoreCase = true)
-                    val isWarning = clean.startsWith("warning:", ignoreCase = true)
-                    val isRealError = !isWarning && (clean.contains("error:", ignoreCase = true) ||
-                            clean.contains("fatal:", ignoreCase = true) ||
-                            clean.contains("Permission denied", ignoreCase = true) ||
-                            (clean.contains("failed", ignoreCase = true) && !clean.contains("0 failed", ignoreCase = true)))
-                    val isError = if (isGitInfo || isWarning) false else (isErr || isRealError)
-                    synchronized(outputLines) {
-                        if (isUpdate && outputLines.isNotEmpty() && !outputLines.last().isCommand) {
-                            outputLines[outputLines.size - 1] = TerminalLine(text = clean, isError = isError)
-                        } else {
-                            outputLines.add(TerminalLine(text = clean, isError = isError))
-                        }
-                    }
-                    activeInstallProgress.value = activeInstallProgress.value?.copy(lines = outputLines.toList())
-                }
-            }
-
-            if (exitCode == 0) {
-                val targetDirFile = File(targetDir)
-                val homeTargetDirFile = File(homeTargetDir)
-                if (isPlugin) {
-                    ensurePluginFiles(targetDirFile, homeTargetDirFile, safeName, customName.ifBlank { safeName }, "")
-                } else {
-                    ensureSkillFiles(targetDirFile, homeTargetDirFile, safeName, customName.ifBlank { safeName }, "")
-                }
-                val sha = fetchLatestRepoCommitSha(cleanUrl, effectiveSubPath) ?: ""
-                registerTrackedCustomization(
-                    context,
-                    CustomizationRepoTrack(
-                        id = safeName,
-                        name = safeName,
-                        repoUrl = cleanUrl,
-                        isPlugin = isPlugin,
-                        subPath = effectiveSubPath,
-                        installedSha = sha,
-                        lastChecked = System.currentTimeMillis()
-                    )
-                )
-            }
-            if (isPlugin) refreshPlugins(context) else refreshSkills(context)
-            activeInstallProgress.value = activeInstallProgress.value?.copy(
-                isRunning = false,
-                isSuccess = (exitCode == 0)
-            )
-        }
-    }
-
-    fun installSelectedRepoSkillsViaTerminal(
-        context: Context,
-        rawRepoUrl: String,
-        selectedSkills: List<DiscoveredRepoSkill>
-    ) {
-        if (selectedSkills.isEmpty()) return
-        val (cleanUrl, subDir) = normalizeGitRepoUrl(rawRepoUrl)
-
-        val directConfig = File(context.filesDir, ".gemini/config").apply { mkdirs() }
-        val gitEnvSetup = prepareGitEnv(context)
-        val staging = cachedInspectedRepoDir
-        val needClone = (staging == null || !staging.exists() || staging.listFiles()?.isEmpty() == true)
-        val tmpCloneDir = if (needClone) {
-            File(context.cacheDir, "repo-batch-clone-${cleanUrl.hashCode().toString().replace("-", "n")}").absolutePath
-        } else {
-            staging!!.absolutePath
-        }
-
-        val cmd = buildString {
-            append(gitEnvSetup)
-            append("echo '[Agent] Starting installation of ${selectedSkills.size} selected skill(s)...' && ")
-            if (needClone) {
-                append("rm -rf '$tmpCloneDir' && ")
-                append("echo '[Agent] Cloning repository from $cleanUrl...' && ")
-                append("git clone --depth 1 '$cleanUrl' '$tmpCloneDir' && ")
-            }
-            for (skill in selectedSkills) {
-                val target = File(directConfig, "skills/${skill.id}").absolutePath
-                val homeTarget = File(context.filesDir, "home/.gemini/config/skills/${skill.id}").absolutePath
-                val src = if (skill.subPath.isNotBlank()) "$tmpCloneDir/${skill.subPath.trim('/')}" else tmpCloneDir
-                append("echo '[Agent] Deploying skill ${skill.name}...' && ")
-                append("rm -rf '$target' '$homeTarget' && mkdir -p '$target' '$homeTarget' && ")
-                append("if [ -d '$src' ]; then cp -r '$src'/* '$target/' 2>/dev/null; fi && ")
-                append("if [ -d '$target/scripts' ]; then chmod +x '$target'/scripts/* 2>/dev/null || true; fi && ")
-                append("cp -r '$target'/* '$homeTarget/' 2>/dev/null && ")
-            }
-            if (needClone) {
-                append("rm -rf '$tmpCloneDir' && ")
-            }
-            append("echo '[Agent] Running agy-fix-paths...' && ")
-            append("for s in ${selectedSkills.map { it.id }.joinToString(" ")}; do agy-fix-paths \"$directConfig/skills/${'$'}s\" 2>/dev/null || true; done && ")
-            append("echo '[Agent] Successfully installed ${selectedSkills.size} skill(s)!'")
-        }
-
-        val initialLines = listOf(TerminalLine(text = "$ Installing ${selectedSkills.size} skill(s) from $cleanUrl...", isCommand = true))
-        activeInstallProgress.value = CustomizationInstallProgress(
-            title = if (selectedSkills.size == 1) selectedSkills.first().name else "${selectedSkills.size} Skills",
-            command = cmd,
-            lines = initialLines,
-            isRunning = true
-        )
-
-        viewModelScope.launch(Dispatchers.IO) {
-            val outputLines = mutableListOf<TerminalLine>().apply { addAll(initialLines) }
-            val cleanRegex = Regex("(?:\u001B\\[[0-?]*[ -/]*[@-~]|\u001B\\][^\u0007\u001B]*(?:\u0007|\u001B\\\\)|\u001B[@-Z\\\\-_]|\r)")
-
-            val exitCode = EngineExecutor.executeCommandWithUpdates(context, cmd, context.filesDir) { line, isErr, isUpdate ->
-                val clean = line.replace(cleanRegex, "").trimEnd('\r')
-                if (clean.isNotEmpty()) {
-                    val isGitInfo = clean.startsWith("Cloning into", ignoreCase = true) ||
-                            clean.startsWith("remote:", ignoreCase = true) ||
-                            clean.startsWith("Receiving objects", ignoreCase = true) ||
-                            clean.startsWith("Resolving deltas", ignoreCase = true) ||
-                            clean.startsWith("Updating files", ignoreCase = true) ||
-                            clean.startsWith("Note: checking out", ignoreCase = true) ||
-                            clean.startsWith("HEAD is now at", ignoreCase = true) ||
-                            clean.startsWith("From https://", ignoreCase = true) ||
-                            clean.startsWith("Already up to date", ignoreCase = true)
-                    val isWarning = clean.startsWith("warning:", ignoreCase = true)
-                    val isRealError = !isWarning && (clean.contains("error:", ignoreCase = true) ||
-                            clean.contains("fatal:", ignoreCase = true) ||
-                            clean.contains("Permission denied", ignoreCase = true) ||
-                            (clean.contains("failed", ignoreCase = true) && !clean.contains("0 failed", ignoreCase = true)))
-                    val isError = if (isGitInfo || isWarning) false else (isErr || isRealError)
-                    synchronized(outputLines) {
-                        if (isUpdate && outputLines.isNotEmpty() && !outputLines.last().isCommand) {
-                            outputLines[outputLines.size - 1] = TerminalLine(text = clean, isError = isError)
-                        } else {
-                            outputLines.add(TerminalLine(text = clean, isError = isError))
-                        }
-                    }
-                    activeInstallProgress.value = activeInstallProgress.value?.copy(lines = outputLines.toList())
-                }
-            }
-
-            if (exitCode == 0) {
-                val sha = fetchLatestRepoCommitSha(cleanUrl, null) ?: ""
-                for (skill in selectedSkills) {
-                    val skillDirFile = File(directConfig, "skills/${skill.id}")
-                    val homeSkillDirFile = File(context.filesDir, "home/.gemini/config/skills/${skill.id}")
-                    ensureSkillFiles(skillDirFile, homeSkillDirFile, skill.id, skill.name, skill.description)
-                    registerTrackedCustomization(
-                        context,
-                        CustomizationRepoTrack(
-                            id = skill.id,
-                            name = skill.name,
-                            repoUrl = cleanUrl,
-                            isPlugin = false,
-                            subPath = skill.subPath.ifBlank { null },
-                            installedSha = sha,
-                            lastChecked = System.currentTimeMillis()
-                        )
-                    )
-                }
-            }
-            clearRepoInspection()
-            refreshSkills(context)
-            activeInstallProgress.value = activeInstallProgress.value?.copy(
-                isRunning = false,
-                isSuccess = (exitCode == 0)
-            )
-        }
-    }
-
-    fun getTrackedCustomizations(context: Context): Map<String, CustomizationRepoTrack> =
-        CustomizationTracker.getTrackedCustomizations(context)
-
-    fun saveTrackedCustomizations(context: Context, tracks: Map<String, CustomizationRepoTrack>) {
-        CustomizationTracker.saveTrackedCustomizations(context, tracks)
-        mutableCustomizationTracks.value = tracks
-    }
-
-    fun registerTrackedCustomization(context: Context, track: CustomizationRepoTrack) {
-        CustomizationTracker.registerTrackedCustomization(context, track)
-        loadTrackedCustomizations(context)
-    }
-
-    fun unregisterTrackedCustomization(context: Context, id: String) {
-        CustomizationTracker.unregisterTrackedCustomization(context, id)
-        loadTrackedCustomizations(context)
-    }
-
-    fun loadTrackedCustomizations(context: Context) {
-        val tracks = CustomizationTracker.getTrackedCustomizations(context)
-        mutableCustomizationTracks.value = tracks
-    }
-
-    fun fetchLatestRepoCommitSha(repoUrl: String, subPath: String? = null): String? =
-        CustomizationTracker.fetchLatestRepoCommitSha(repoUrl, subPath)
-
-    fun seedCatalogueTrackingIfInstalled(context: Context) {
-        val installed = mutableListOf<CustomizationItem>()
-        installed.addAll(getInstalledSkills(context))
-        installed.addAll(getInstalledPlugins(context))
-
-        val catalogue = mutableListOf<SkillCatalogueItem>()
-        catalogue.addAll(getAvailableSkillsCatalogue())
-        catalogue.addAll(getAvailablePluginsCatalogue())
-
-        val currentTracks = getTrackedCustomizations(context).toMutableMap()
-        var changed = false
-
-        for (item in installed) {
-            val key = item.name.lowercase()
-            if (!currentTracks.containsKey(key)) {
-                val match = catalogue.firstOrNull { it.name.equals(item.name, ignoreCase = true) || it.id.equals(item.name, ignoreCase = true) }
-                if (match != null && match.repoUrl.isNotBlank()) {
-                    currentTracks[key] = CustomizationRepoTrack(
-                        id = match.id,
-                        name = match.name,
-                        repoUrl = match.repoUrl,
-                        isPlugin = match.isPlugin,
-                        subPath = match.subPath,
-                        installedSha = "",
-                        lastChecked = 0L
-                    )
-                    changed = true
-                }
-            }
-        }
-        if (changed) {
-            saveTrackedCustomizations(context, currentTracks)
-        }
-    }
-
-    fun checkForCustomizationUpdates(context: Context, force: Boolean = false) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val lastCheckTime = prefs.getLong(KEY_CUSTOMIZATION_LAST_CHECK, 0L)
-        val now = System.currentTimeMillis()
-        val oneDayMillis = 24 * 60 * 60 * 1000L
-
-        if (!force && (now - lastCheckTime < oneDayMillis)) {
-            loadTrackedCustomizations(context)
-            return
-        }
-
-        viewModelScope.launch(Dispatchers.IO) {
-            mutableIsCheckingCustomizationUpdates.value = true
-            try {
-                seedCatalogueTrackingIfInstalled(context)
-                val currentTracks = getTrackedCustomizations(context).toMutableMap()
-
-                for ((id, track) in currentTracks) {
-                    if (track.repoUrl.isBlank()) continue
-                    val latestSha = fetchLatestRepoCommitSha(track.repoUrl, track.subPath)
-                    if (latestSha != null && latestSha.isNotBlank()) {
-                        if (track.installedSha.isBlank()) {
-                            currentTracks[id] = track.copy(
-                                installedSha = latestSha,
-                                remoteSha = latestSha,
-                                hasUpdate = false,
-                                lastChecked = now
-                            )
-                        } else {
-                            val hasUpdate = track.installedSha != latestSha
-                            currentTracks[id] = track.copy(
-                                remoteSha = latestSha,
-                                hasUpdate = hasUpdate,
-                                lastChecked = now
-                            )
-                        }
-                    }
-                }
-
-                saveTrackedCustomizations(context, currentTracks)
-                prefs.edit().putLong(KEY_CUSTOMIZATION_LAST_CHECK, now).apply()
-            } catch (e: Exception) {
-                Log.e("AntigravityViewModel", "Failed checking customization updates", e)
-            } finally {
-                mutableIsCheckingCustomizationUpdates.value = false
-            }
-        }
-    }
-
-    fun loadProjects(context: Context) {
-        val sorted = ProjectPersistence.loadProjects(context, mutableProjectSortOrder.value)
-        mutableProjectList.value = sorted
-    }
-
-    fun saveProjects(context: Context, list: List<File>) {
-        ProjectPersistence.saveProjects(context, list)
-    }
-
-    fun addProject(context: Context, path: String): File {
-        val f = File(path)
-        if (!f.exists()) f.mkdirs()
-        val currentList = mutableProjectList.value.toMutableList()
-        if (currentList.none { it.absolutePath == f.absolutePath }) {
-            currentList.add(f)
-            val sorted = ProjectPersistence.sortProjects(currentList, mutableProjectSortOrder.value)
-            mutableProjectList.value = sorted
-            saveProjects(context, sorted)
-        }
-        setWorkspacePath(context, f.absolutePath)
-        addLog("Workspace", "Added project: ${f.name} (${f.absolutePath})")
-        return f
-    }
-
-    fun removeProject(context: Context, path: String) {
-        val currentList = mutableProjectList.value.filter { it.absolutePath != path }
-        mutableProjectList.value = currentList
-        saveProjects(context, currentList)
-        if (mutableWorkspacePath.value == path) {
-            val nextPath = currentList.firstOrNull()?.absolutePath ?: ""
-            setWorkspacePath(context, nextPath)
-        }
-        addLog("Workspace", "Removed project from list: $path")
-    }
-
-    fun resolveTreeUriToFolder(context: Context, treeUri: Uri): File? =
-        ProjectPersistence.resolveTreeUriToFolder(context, treeUri)
-
-    fun addProjectFromTreeUri(context: Context, treeUri: Uri): File? {
-        val folder = resolveTreeUriToFolder(context, treeUri)
-        if (folder != null) {
-            if (!folder.exists()) {
-                folder.mkdirs()
-            }
-            return addProject(context, folder.absolutePath)
-        }
-        return null
-    }
-
-    fun setProjectSortOrder(context: Context, order: ProjectSortOrder) {
-        mutableProjectSortOrder.value = order
-        ProjectPersistence.saveProjectSortOrder(context, order)
-        mutableProjectList.update { ProjectPersistence.sortProjects(it, order) }
-    }
-
-    private fun sortProjects(list: List<File>, order: ProjectSortOrder): List<File> =
-        ProjectPersistence.sortProjects(list, order)
-
-    fun createProjectInFolder(context: Context, name: String, parentDir: File): File? {
-        val newDir = ProjectPersistence.createProjectInFolder(name, parentDir) ?: return null
-        val added = addProject(context, newDir.absolutePath)
-        addLog("Workspace", "Created project folder: ${added.name} in ${parentDir.absolutePath}")
-        return added
-    }
-
-    fun createProjectFolder(context: Context, name: String, targetBase: File? = null): File? {
-        val baseDir = targetBase
-            ?: (Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS) ?: Environment.getExternalStorageDirectory()).apply { mkdirs() }
-        return createProjectInFolder(context, name, baseDir)
-    }
-
-    fun setWorkspacePath(context: Context, path: String) {
-        mutableWorkspacePath.value = path
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_WORKSPACE_PATH, path).apply()
-        TerminalSessionManager.currentWorkingDir = File(path)
-        addLog("Workspace", "Active directory changed: $path")
-    }
-
-    fun saveConversationHistory(context: Context) {
-        ConversationPersistence.saveConversationHistory(context, mutableConversationHistory.value)
-    }
-
-    fun saveLastActiveConversationId(context: Context, id: String?) {
-        ConversationPersistence.saveLastActiveConversationId(context, id)
-    }
-
-    fun saveMessagesForConversation(context: Context, conversationId: String, messages: List<ChatMessage>) {
-        val messagesSnapshot = messages.toList()
-        viewModelScope.launch(Dispatchers.IO) {
-            ConversationPersistence.saveMessagesForConversation(context, conversationId, messagesSnapshot)
-        }
-    }
-
-    fun loadMessagesForConversation(context: Context, conversationId: String): List<ChatMessage> {
-        return ConversationPersistence.loadMessagesForConversation(context, conversationId)
-    }
-
-    private fun deleteConversationFile(context: Context, conversationId: String) {
-        ConversationPersistence.deleteConversationFile(context, conversationId)
-    }
-
-    fun loadConversationHistory(context: Context) {
-        val list = ConversationPersistence.loadConversationHistory(context)
-        mutableConversationHistory.value = list
-
-        val lastActiveId = ConversationPersistence.getLastActiveConversationId(context)
-        val activeSummary = list.firstOrNull { it.id == lastActiveId } ?: list.firstOrNull()
-        if (activeSummary != null) {
-            mutableActiveConversationId.value = activeSummary.id
-            mutableConversationTitle.value = activeSummary.title
-            mutableIsConversationPinned.value = activeSummary.isPinned
-            if (!activeSummary.projectPath.isNullOrBlank()) {
-                mutableWorkspacePath.value = activeSummary.projectPath
-                TerminalSessionManager.currentWorkingDir = File(activeSummary.projectPath)
-            }
-            mutableChatMessages.value = loadMessagesForConversation(context, activeSummary.id)
-            saveLastActiveConversationId(context, activeSummary.id)
-        } else {
-            mutableActiveConversationId.value = null
-            mutableConversationTitle.value = "New Conversation"
-            mutableChatMessages.value = emptyList()
-            mutableIsConversationPinned.value = false
-        }
-    }
-
-    fun startNewConversation(context: Context? = null, projectPath: String? = mutableWorkspacePath.value) {
-        val currentId = mutableActiveConversationId.value
-        if (context != null && currentId != null && mutableChatMessages.value.isNotEmpty()) {
-            saveMessagesForConversation(context, currentId, mutableChatMessages.value)
-        }
-        mutableChatMessages.value = emptyList()
-        mutableConversationTitle.value = "New Conversation"
-        mutableActiveConversationId.value = null
-        mutableAttachedFiles.value = emptyList()
-        mutableIsConversationPinned.value = false
-        if (!projectPath.isNullOrBlank()) {
-            mutableWorkspacePath.value = projectPath
-            TerminalSessionManager.currentWorkingDir = File(projectPath)
-        }
-        if (context != null) {
-            saveLastActiveConversationId(context, null)
-        }
-    }
-
-    fun loadConversation(context: Context, summary: ConversationSummary) {
-        val currentId = mutableActiveConversationId.value
-        if (currentId != null && mutableChatMessages.value.isNotEmpty()) {
-            saveMessagesForConversation(context, currentId, mutableChatMessages.value)
-        }
-        mutableActiveConversationId.value = summary.id
-        mutableConversationTitle.value = summary.title
-        mutableIsConversationPinned.value = summary.isPinned
-        if (!summary.projectPath.isNullOrBlank()) {
-            mutableWorkspacePath.value = summary.projectPath
-            TerminalSessionManager.currentWorkingDir = File(summary.projectPath)
-        }
-        mutableChatMessages.value = loadMessagesForConversation(context, summary.id)
-        saveLastActiveConversationId(context, summary.id)
-        addLog("Conversation", "Switched to conversation: ${summary.title}")
-    }
-
-    fun loadConversation(summary: ConversationSummary) {
-        mutableActiveConversationId.value = summary.id
-        mutableConversationTitle.value = summary.title
-        mutableIsConversationPinned.value = summary.isPinned
-        if (!summary.projectPath.isNullOrBlank()) {
-            mutableWorkspacePath.value = summary.projectPath
-            TerminalSessionManager.currentWorkingDir = File(summary.projectPath)
-        }
-        addLog("Conversation", "Switched to conversation: ${summary.title}")
-    }
-
-    fun renameConversation(newTitle: String, summaryId: String? = null, context: Context? = null) {
-        val trimmed = newTitle.trim()
-        if (trimmed.isNotEmpty()) {
-            val targetContext = context ?: try { AntigravityApp.instance } catch (e: Exception) { null }
-            if (summaryId == null) {
-                mutableConversationTitle.value = trimmed
-                var currentId = mutableActiveConversationId.value
-                if (currentId == null) {
-                    currentId = UUID.randomUUID().toString()
-                    mutableActiveConversationId.value = currentId
-                }
-                mutableConversationHistory.update { list ->
-                    val exists = list.any { it.id == currentId }
-                    if (exists) {
-                        list.map { if (it.id == currentId) it.copy(title = trimmed) else it }
-                    } else {
-                        listOf(
-                            ConversationSummary(
-                                id = currentId,
-                                title = trimmed,
-                                timestamp = System.currentTimeMillis(),
-                                messageCount = mutableChatMessages.value.size,
-                                isPinned = mutableIsConversationPinned.value,
-                                projectPath = mutableWorkspacePath.value
-                            )
-                        ) + list
-                    }
-                }
-                if (targetContext != null) {
-                    saveLastActiveConversationId(targetContext, currentId)
-                }
-            } else {
-                mutableConversationHistory.update { list ->
-                    list.map { if (it.id == summaryId) it.copy(title = trimmed) else it }
-                }
-                if (mutableActiveConversationId.value == summaryId) {
-                    mutableConversationTitle.value = trimmed
-                }
-            }
-            if (targetContext != null) {
-                saveConversationHistory(targetContext)
-            }
-            addLog("Conversation", "Conversation renamed to: $trimmed")
-        }
-    }
-
-    fun togglePinConversation(summaryId: String? = null, context: Context? = null): Boolean {
-        val targetContext = context ?: try { AntigravityApp.instance } catch (e: Exception) { null }
-        if (summaryId == null) {
-            mutableIsConversationPinned.update { !it }
-            val pinned = mutableIsConversationPinned.value
-            val currentId = mutableActiveConversationId.value
-            if (currentId != null) {
-                mutableConversationHistory.update { list ->
-                    list.map { if (it.id == currentId) it.copy(isPinned = pinned) else it }
-                }
-                if (targetContext != null) saveConversationHistory(targetContext)
-            }
-            addLog("Conversation", if (pinned) "Conversation pinned" else "Conversation unpinned")
-            return pinned
-        } else {
-            var newPinned = false
-            mutableConversationHistory.update { list ->
-                list.map {
-                    if (it.id == summaryId) {
-                        newPinned = !it.isPinned
-                        it.copy(isPinned = newPinned)
-                    } else it
-                }
-            }
-            if (mutableActiveConversationId.value == summaryId) {
-                mutableIsConversationPinned.value = newPinned
-            }
-            if (targetContext != null) saveConversationHistory(targetContext)
-            return true
-        }
-    }
-
-    fun deleteConversation(id: String) {
-        val targetContext = try { AntigravityApp.instance } catch (e: Exception) { null }
-        if (targetContext != null) {
-            deleteConversation(targetContext, id)
-        } else {
-            mutableConversationHistory.update { list -> list.filter { it.id != id } }
-            if (mutableActiveConversationId.value == id) {
-                mutableActiveConversationId.value = null
-                mutableChatMessages.value = emptyList()
-                mutableConversationTitle.value = "New Conversation"
-                mutableAttachedFiles.value = emptyList()
-                mutableIsConversationPinned.value = false
-            }
-            addLog("Conversation", "Deleted conversation $id")
-        }
-    }
-
-    fun deleteConversation(context: Context, id: String) {
-        mutableConversationHistory.update { list -> list.filter { it.id != id } }
-        saveConversationHistory(context)
-        deleteConversationFile(context, id)
-        if (mutableActiveConversationId.value == id) {
-            val nextConv = mutableConversationHistory.value.firstOrNull()
-            if (nextConv != null) {
-                loadConversation(context, nextConv)
-            } else {
-                mutableActiveConversationId.value = null
-                mutableChatMessages.value = emptyList()
-                mutableConversationTitle.value = "New Conversation"
-                mutableAttachedFiles.value = emptyList()
-                mutableIsConversationPinned.value = false
-                saveLastActiveConversationId(context, null)
-            }
-        }
-        addLog("Conversation", "Deleted conversation $id")
-    }
-
-    fun deleteCurrentConversation(context: Context) {
-        val currentId = mutableActiveConversationId.value
-        if (currentId != null) {
-            deleteConversation(context, currentId)
-        } else {
-            val currentTitle = mutableConversationTitle.value
-            val match = mutableConversationHistory.value.firstOrNull { it.title == currentTitle }
-            if (match != null) {
-                deleteConversation(context, match.id)
-            } else {
-                mutableChatMessages.value = emptyList()
-                mutableConversationTitle.value = "New Conversation"
-                mutableAttachedFiles.value = emptyList()
-                mutableIsConversationPinned.value = false
-            }
-        }
-    }
-
-    fun archiveConversation(context: Context? = null) {
-        val targetContext = context ?: try { AntigravityApp.instance } catch (e: Exception) { null }
-        val currentId = mutableActiveConversationId.value
-        if (mutableChatMessages.value.isNotEmpty()) {
-            val title = mutableConversationTitle.value
-            val convId = currentId ?: UUID.randomUUID().toString()
-            val summary = ConversationSummary(
-                id = convId,
-                title = title,
-                timestamp = System.currentTimeMillis(),
-                messageCount = mutableChatMessages.value.size,
-                isPinned = mutableIsConversationPinned.value,
-                projectPath = mutableWorkspacePath.value
-            )
-            mutableConversationHistory.update { list ->
-                listOf(summary) + list.filter { it.id != convId }
-            }
-            if (targetContext != null) {
-                saveConversationHistory(targetContext)
-                saveMessagesForConversation(targetContext, convId, mutableChatMessages.value)
-            }
-            addLog("Conversation", "Conversation archived: $title")
-        }
-        mutableChatMessages.value = emptyList()
-        mutableConversationTitle.value = "New Conversation"
-        mutableActiveConversationId.value = null
-        mutableAttachedFiles.value = emptyList()
-        mutableIsConversationPinned.value = false
-        if (targetContext != null) {
-            saveLastActiveConversationId(targetContext, null)
-        }
-    }
-
-    fun getGeminiConfigDir(context: Context): File {
-        val directConfig = File(context.filesDir, ".gemini/config").apply { mkdirs() }
-        val homeConfig = File(context.filesDir, "home/.gemini/config").apply { mkdirs() }
-        try {
-            syncConfigBidirectional(context)
-        } catch (e: Exception) {}
-        return directConfig
-    }
-
-    fun syncConfigBidirectional(context: Context) {
-        try {
-            val directConfig = File(context.filesDir, ".gemini/config")
-            val homeConfig = File(context.filesDir, "home/.gemini/config")
-            if (directConfig.exists() && directConfig.isDirectory) {
-                directConfig.copyRecursively(homeConfig, overwrite = true)
-            }
-            if (homeConfig.exists() && homeConfig.isDirectory) {
-                homeConfig.copyRecursively(directConfig, overwrite = false)
-            }
-        } catch (e: Exception) {}
-    }
-
-    fun syncConfigToRoot(context: Context) {
-        syncConfigBidirectional(context)
-    }
-
-    fun getBuiltinSkillsDir(context: Context): File {
-        val candidates = listOf(
-            File(context.filesDir, ".gemini/antigravity-app/builtin/skills"),
-            File(context.filesDir, "usr/share/antigravity/builtin/skills"),
-            File(context.filesDir, "home/.gemini/antigravity-app/builtin/skills")
-        )
-        return candidates.firstOrNull { it.exists() && it.isDirectory } ?: candidates.first()
-    }
-
-    fun getInstalledSkills(context: Context): List<CustomizationItem> {
-        val list = mutableListOf<CustomizationItem>()
-        val seen = mutableSetOf<String>()
-
-        val configDir = getGeminiConfigDir(context)
-        val configDirsToCheck = listOf(
-            File(configDir, "skills"),
-            File(context.filesDir, ".gemini/config/skills"),
-            File(context.filesDir, "home/.gemini/config/skills")
-        )
-
-        for (skillsDir in configDirsToCheck) {
-            if (skillsDir.isDirectory) {
-                skillsDir.listFiles()?.filter { it.isDirectory }?.forEach { dir ->
-                    val nameLower = dir.name.lowercase()
-                    val skillFile = File(dir, "SKILL.md")
-                    if (skillFile.exists() && !seen.contains(nameLower)) {
-                        var desc = "Custom user skill"
-                        val descLine = skillFile.readLines().take(20).firstOrNull { it.trim().startsWith("description:") }
-                        if (descLine != null) {
-                            desc = descLine.substringAfter("description:").trim().trim('"', '\'')
-                        }
-                        seen.add(nameLower)
-                        list.add(CustomizationItem(dir.name, dir.name, desc, "skill", false, dir.absolutePath))
-                    }
-
-                    val nestedSkills = File(dir, "skills")
-                    if (nestedSkills.isDirectory) {
-                        nestedSkills.listFiles()?.filter { it.isDirectory }?.forEach { nDir ->
-                            val nNameLower = nDir.name.lowercase()
-                            if (!seen.contains(nNameLower)) {
-                                val nSkillFile = File(nDir, "SKILL.md")
-                                var desc = "Community skill from ${dir.name}"
-                                if (nSkillFile.exists()) {
-                                    val descLine = nSkillFile.readLines().take(20).firstOrNull { it.trim().startsWith("description:") }
-                                    if (descLine != null) {
-                                        desc = descLine.substringAfter("description:").trim().trim('"', '\'')
-                                    }
-                                }
-                                seen.add(nNameLower)
-                                list.add(CustomizationItem(nDir.name, nDir.name, desc, "skill", false, nDir.absolutePath))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        val pluginBaseDirs = listOf(
-            File(configDir, "plugins"),
-            File(context.filesDir, ".gemini/config/plugins"),
-            File(context.filesDir, "home/.gemini/config/plugins")
-        )
-        for (pBase in pluginBaseDirs) {
-            if (pBase.isDirectory) {
-                pBase.listFiles()?.filter { it.isDirectory }?.forEach { pDir ->
-                    val pluginSkillsDir = File(pDir, "skills")
-                    if (pluginSkillsDir.isDirectory) {
-                        pluginSkillsDir.listFiles()?.filter { it.isDirectory }?.forEach { sDir ->
-                            val sNameLower = sDir.name.lowercase()
-                            if (!seen.contains(sNameLower)) {
-                                val skillFile = File(sDir, "SKILL.md")
-                                var desc = "Plugin skill from ${pDir.name}"
-                                if (skillFile.exists()) {
-                                    val descLine = skillFile.readLines().take(20).firstOrNull { it.trim().startsWith("description:") }
-                                    if (descLine != null) {
-                                        desc = descLine.substringAfter("description:").trim().trim('"', '\'')
-                                    }
-                                }
-                                seen.add(sNameLower)
-                                list.add(CustomizationItem(sDir.name, sDir.name, desc, "skill", false, sDir.absolutePath))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        val wsPath = mutableWorkspacePath.value
-        if (!wsPath.isNullOrBlank()) {
-            val wsDir = File(wsPath)
-            if (wsDir.isDirectory) {
-                val wsSkillsDirs = listOf(File(wsDir, ".gemini/skills"), File(wsDir, "skills"))
-                for (wSkills in wsSkillsDirs) {
-                    if (wSkills.isDirectory) {
-                        wSkills.listFiles()?.filter { it.isDirectory }?.forEach { dir ->
-                            val nameLower = dir.name.lowercase()
-                            if (!seen.contains(nameLower)) {
-                                val skillFile = File(dir, "SKILL.md")
-                                var desc = "Workspace skill"
-                                if (skillFile.exists()) {
-                                    val descLine = skillFile.readLines().take(20).firstOrNull { it.trim().startsWith("description:") }
-                                    if (descLine != null) {
-                                        desc = descLine.substringAfter("description:").trim().trim('"', '\'')
-                                    }
-                                }
-                                seen.add(nameLower)
-                                list.add(CustomizationItem(dir.name, dir.name, desc, "skill", false, dir.absolutePath))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        val builtinDir = getBuiltinSkillsDir(context)
-        if (builtinDir.isDirectory) {
-            builtinDir.listFiles()?.filter { it.isDirectory }?.forEach { dir ->
-                val nameLower = dir.name.lowercase()
-                if (!seen.contains(nameLower)) {
-                    val skillFile = File(dir, "SKILL.md")
-                    var desc = "Built-in Antigravity skill"
-                    if (skillFile.exists()) {
-                        val descLine = skillFile.readLines().take(20).firstOrNull { it.trim().startsWith("description:") }
-                        if (descLine != null) {
-                            desc = descLine.substringAfter("description:").trim().trim('"', '\'')
-                        }
-                    }
-                    seen.add(nameLower)
-                    list.add(CustomizationItem(dir.name, dir.name, desc, "skill", true, dir.absolutePath))
-                }
-            }
-        }
-
-        return list
-    }
-
-    fun installSkill(context: Context, name: String, description: String, content: String): Boolean {
-        try {
-            val trimmedName = name.trim().lowercase().replace("\\s+".toRegex(), "-")
-            if (trimmedName.isEmpty()) return false
-            val directConfig = File(context.filesDir, ".gemini/config").apply { mkdirs() }
-            val homeConfig = File(context.filesDir, "home/.gemini/config").apply { mkdirs() }
-            val skillDir = File(directConfig, "skills/$trimmedName").apply { mkdirs() }
-            val homeSkillDir = File(homeConfig, "skills/$trimmedName").apply { mkdirs() }
-            val mdContent = buildString {
-                appendLine("---")
-                appendLine("name: $trimmedName")
-                appendLine("description: \"${description.trim()}\"")
-                appendLine("---")
-                appendLine()
-                if (content.isNotBlank()) {
-                    appendLine(content.trim())
-                } else {
-                    appendLine("# $trimmedName")
-                    appendLine()
-                    appendLine(description.trim())
-                }
-            }
-            File(skillDir, "SKILL.md").writeText(mdContent)
-            File(homeSkillDir, "SKILL.md").writeText(mdContent)
-            syncConfigBidirectional(context)
-            refreshSkills(context)
-            addLog("Customization", "Installed custom skill: $trimmedName")
-            return true
-        } catch (e: Exception) {
-            Log.e("AntigravityViewModel", "Failed installing skill", e)
-            return false
-        }
-    }
-
-    fun uninstallSkill(context: Context, name: String): Boolean {
-        try {
-            val trimmedName = name.trim().lowercase()
-            val skillDir = File(context.filesDir, ".gemini/config/skills/$trimmedName")
-            val homeSkillDir = File(context.filesDir, "home/.gemini/config/skills/$trimmedName")
-            var ok = false
-            if (skillDir.exists()) ok = skillDir.deleteRecursively() || ok
-            if (homeSkillDir.exists()) ok = homeSkillDir.deleteRecursively() || ok
-            syncConfigBidirectional(context)
-            unregisterTrackedCustomization(context, trimmedName)
-            refreshSkills(context)
-            addLog("Customization", "Uninstalled skill: $trimmedName")
-            return ok
-        } catch (e: Exception) {
-            Log.e("AntigravityViewModel", "Failed uninstalling skill", e)
-            return false
-        }
-    }
-
-    fun getInstalledPlugins(context: Context): List<CustomizationItem> {
-        val list = mutableListOf<CustomizationItem>()
-        val seen = mutableSetOf<String>()
-
-        val configDir = getGeminiConfigDir(context)
-        val pluginBaseDirs = listOf(
-            File(configDir, "plugins"),
-            File(context.filesDir, ".gemini/config/plugins"),
-            File(context.filesDir, "home/.gemini/config/plugins")
-        )
-
-        for (pBase in pluginBaseDirs) {
-            if (pBase.isDirectory) {
-                pBase.listFiles()?.filter { it.isDirectory }?.forEach { dir ->
-                    val nameLower = dir.name.lowercase()
-                    if (!seen.contains(nameLower)) {
-                        seen.add(nameLower)
-                        var desc = "Plugin extension for Antigravity"
-                        val pluginJson = File(dir, "plugin.json")
-                        var jsonValid = false
-                        if (pluginJson.exists()) {
-                            try {
-                                val text = pluginJson.readText(Charsets.UTF_8).trim()
-                                if (!text.contains("\\n") && !text.contains("\\\"")) {
-                                    val json = org.json.JSONObject(text)
-                                    jsonValid = true
-                                    if (json.has("description")) {
-                                        desc = json.getString("description")
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                jsonValid = false
-                            }
-                        }
-
-                        if (desc == "Plugin extension for Antigravity") {
-                            val ruleFile = File(dir, "rules/AGENTS.md")
-                            if (ruleFile.exists()) {
-                                val firstLines = ruleFile.readLines().take(10)
-                                val header = firstLines.firstOrNull { it.trim().startsWith("#") }
-                                if (header != null) {
-                                    desc = header.removePrefix("#").trim()
-                                }
-                            }
-                        }
-
-                        if (!jsonValid && dir.canWrite()) {
-                            try {
-                                val repaired = org.json.JSONObject().apply {
-                                    put("name", dir.name)
-                                    put("version", "1.0.0")
-                                    put("description", desc)
-                                }.toString(2)
-                                pluginJson.writeText(repaired, Charsets.UTF_8)
-                                Log.i("AntigravityViewModel", "Auto-repaired corrupted plugin.json for ${dir.name}")
-                            } catch (e: Exception) {}
-                        }
-
-                        val ruleFile = File(dir, "rules/AGENTS.md")
-                        val altRuleFile = File(dir, "rules/antislop.md")
-                        if (!ruleFile.exists() && altRuleFile.exists()) {
-                            try {
-                                altRuleFile.copyTo(ruleFile, overwrite = true)
-                            } catch (e: Exception) {}
-                        }
-
-                        val isCore = false
-                        list.add(CustomizationItem(dir.name, dir.name, desc, "plugin", isCore, dir.absolutePath))
-                    }
-                }
-            }
-        }
-
-        return list
-    }
-
-    fun installPlugin(context: Context, name: String, description: String): Boolean {
-        try {
-            val trimmedName = name.trim().lowercase().replace("\\s+".toRegex(), "-")
-            if (trimmedName.isEmpty()) return false
-            val directConfig = File(context.filesDir, ".gemini/config").apply { mkdirs() }
-            val homeConfig = File(context.filesDir, "home/.gemini/config").apply { mkdirs() }
-            val pluginDir = File(directConfig, "plugins/$trimmedName/rules").apply { mkdirs() }
-            val homePluginDir = File(homeConfig, "plugins/$trimmedName/rules").apply { mkdirs() }
-            val mdContent = buildString {
-                appendLine("# Plugin: $trimmedName")
-                appendLine()
-                appendLine(description.trim())
-            }
-            File(pluginDir, "AGENTS.md").writeText(mdContent)
-            File(homePluginDir, "AGENTS.md").writeText(mdContent)
-            File(pluginDir.parentFile, "plugin.json").writeText("{\n  \"name\": \"$trimmedName\"\n}\n")
-            File(homePluginDir.parentFile, "plugin.json").writeText("{\n  \"name\": \"$trimmedName\"\n}\n")
-            syncConfigBidirectional(context)
-            refreshPlugins(context)
-            addLog("Customization", "Installed custom plugin: $trimmedName")
-            return true
-        } catch (e: Exception) {
-            Log.e("AntigravityViewModel", "Failed installing plugin", e)
-            return false
-        }
-    }
-
-    fun uninstallPlugin(context: Context, name: String): Boolean {
-        try {
-            val trimmedName = name.trim().lowercase()
-            val pluginDir = File(context.filesDir, ".gemini/config/plugins/$trimmedName")
-            val homePluginDir = File(context.filesDir, "home/.gemini/config/plugins/$trimmedName")
-            var ok = false
-            if (pluginDir.exists()) ok = pluginDir.deleteRecursively() || ok
-            if (homePluginDir.exists()) ok = homePluginDir.deleteRecursively() || ok
-            syncConfigBidirectional(context)
-            unregisterTrackedCustomization(context, trimmedName)
-            refreshPlugins(context)
-            addLog("Customization", "Uninstalled plugin: $trimmedName")
-            return ok
-        } catch (e: Exception) {
-            Log.e("AntigravityViewModel", "Failed uninstalling plugin", e)
-            return false
-        }
-    }
-
-    fun getAvailableSkillsCatalogue(): List<SkillCatalogueItem> {
-        val remote = mutableSkillsCatalogue.value
-        return if (remote.isNotEmpty()) remote else getDefaultSkillsCatalogue()
-    }
-
-    fun getDefaultSkillsCatalogue(): List<SkillCatalogueItem> =
-        CustomizationCatalogue.getDefaultSkillsCatalogue()
-
-    fun getAvailablePluginsCatalogue(): List<SkillCatalogueItem> {
-        val remote = mutablePluginsCatalogue.value
-        return if (remote.isNotEmpty()) remote else getDefaultPluginsCatalogue()
-    }
-
-    fun getDefaultPluginsCatalogue(): List<SkillCatalogueItem> =
-        CustomizationCatalogue.getDefaultPluginsCatalogue()
-
-    private var lastCatalogueFetchTime = 0L
-
-    fun loadCachedCatalogue(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val (skills, plugins) = CustomizationCatalogue.loadCachedCatalogue(context)
-            if (skills.isNotEmpty()) mutableSkillsCatalogue.value = skills
-            if (plugins.isNotEmpty()) mutablePluginsCatalogue.value = plugins
-        }
-    }
-
-    fun fetchRemoteCatalogue(context: Context, force: Boolean = false) {
-        val now = System.currentTimeMillis()
-        if (!force && (now - lastCatalogueFetchTime < 15 * 60 * 1000L)) {
-            return
-        }
-        if (mutableIsFetchingCatalogue.value) return
-        mutableIsFetchingCatalogue.value = true
-
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val pair = CustomizationCatalogue.fetchRemoteCatalogue(context)
-                if (pair != null) {
-                    val (skills, plugins) = pair
-                    if (skills.isNotEmpty()) mutableSkillsCatalogue.value = skills
-                    if (plugins.isNotEmpty()) mutablePluginsCatalogue.value = plugins
-                    lastCatalogueFetchTime = System.currentTimeMillis()
-                    addLog("Catalogue", "Updated catalogue: ${skills.size} skills, ${plugins.size} plugins from remote.")
-                }
-            } finally {
-                mutableIsFetchingCatalogue.value = false
-            }
-        }
-    }
-
-    fun getInstalledRules(context: Context): List<Pair<String, String>> {
-        val rules = mutableListOf<Pair<String, String>>()
-        val configDir = getGeminiConfigDir(context)
-
-        val agentsFile = File(configDir, "AGENTS.md")
-        if (agentsFile.exists() && agentsFile.length() > 0) {
-            val firstLine = agentsFile.readLines().firstOrNull { it.trim().startsWith("#") }?.removePrefix("#")?.trim()
-            val desc = firstLine ?: "Core global behavior and environment execution standards"
-            rules.add("AGENTS.md" to desc)
-        }
-
-        val pluginsDir = File(configDir, "plugins")
-        if (pluginsDir.isDirectory) {
-            pluginsDir.listFiles()?.filter { it.isDirectory }?.forEach { pDir ->
-                val ruleFile = File(pDir, "rules/AGENTS.md")
-                if (ruleFile.exists()) {
-                    val firstLine = ruleFile.readLines().firstOrNull { it.trim().startsWith("#") }?.removePrefix("#")?.trim()
-                    val desc = firstLine ?: "Plugin rules for ${pDir.name}"
-                    rules.add("RULE[${pDir.name}/rules/AGENTS.md]" to desc)
-                }
-            }
-        }
-
-        return rules
-    }
-
-    fun installPluginFromCatalogueAsync(context: Context, pluginId: String, onComplete: (Boolean) -> Unit) {
-        if (mutableInstallingItemId.value != null) return
-        mutableInstallingItemId.value = pluginId
-
-        viewModelScope.launch {
-            val success = withContext(Dispatchers.IO) {
-                try {
-                    val configDir = getGeminiConfigDir(context)
-                    val pluginDir = File(configDir, "plugins/$pluginId")
-                    val rulesDir = File(pluginDir, "rules").apply { mkdirs() }
-
-                    when (pluginId.lowercase()) {
-                        "rtk" -> {
-                            addLog("Plugin", "Initializing RTK (Rust Token Killer)...")
-                            val usrBinRtk = File(context.filesDir, "usr/bin/rtk")
-                            val prefixRtk = File(context.filesDir, "home/usr/bin/rtk")
-                            val runtimeRtk = File(context.filesDir, "runtime/bin/rtk")
-
-                            if (runtimeRtk.exists() && !usrBinRtk.exists()) {
-                                try {
-                                    runtimeRtk.copyTo(usrBinRtk, overwrite = true)
-                                    usrBinRtk.setExecutable(true, false)
-                                } catch (e: Exception) {}
-                            }
-                            if (!usrBinRtk.exists()) {
-                                try {
-                                    addLog("Plugin", "Downloading RTK binary from release payload...")
-                                    val rtkUrl = java.net.URL("https://github.com/KuatoDev/antigravity-bootstrap/releases/download/core-v1/rtk")
-                                    usrBinRtk.parentFile?.mkdirs()
-                                    rtkUrl.openStream().use { input ->
-                                        usrBinRtk.outputStream().use { output ->
-                                            input.copyTo(output)
-                                        }
-                                    }
-                                    usrBinRtk.setExecutable(true, false)
-                                    addLog("Plugin", "RTK binary downloaded successfully.")
-                                } catch (e: Exception) {
-                                    addLog("Plugin", "Failed to download RTK: ${e.message}", isError = true)
-                                }
-                            }
-                            if (usrBinRtk.exists()) {
-                                usrBinRtk.setExecutable(true, false)
-                            }
-                            if (prefixRtk.exists()) {
-                                prefixRtk.setExecutable(true, false)
-                            }
-
-                            EngineExecutor.executeCommand(context, "which rtk && rtk --version") { line, isErr ->
-                                addLog("Plugin", line, isErr)
-                            }
-
-                            addLog("Plugin", "Running rtk init --agent antigravity --global --auto-patch...")
-                            EngineExecutor.executeCommand(context, "rtk init --agent antigravity --global --auto-patch") { line, isErr ->
-                                addLog("Plugin", line, isErr)
-                            }
-
-                            if (!pluginDir.exists()) pluginDir.mkdirs()
-                            rulesDir.mkdirs()
-
-                            val pluginJson = File(pluginDir, "plugin.json")
-                            if (!pluginJson.exists() || pluginJson.length() == 0L) {
-                                pluginJson.writeText(
-                                    """
-                                    {
-                                      "name": "rtk",
-                                      "version": "1.0.0",
-                                      "description": "Antigravity plugin for transparent command rewriting and token optimization using rtk"
-                                    }
-                                    """.trimIndent()
-                                )
-                            }
-
-                            val agentRule = File(rulesDir, "AGENTS.md")
-                            if (!agentRule.exists() || agentRule.length() == 0L) {
-                                agentRule.writeText(
-                                    """
-                                    # Command output
-
-                                    Command output here is condensed to save tokens, keeping every signal and
-                                    dropping costly noise. Treat it as the complete result: run commands
-                                    normally, and batch related commands into one call to avoid extra turns.
-                                    Truncated results state their recovery path in their own output. Re-run a
-                                    command as `rtk bypass <cmd>` only when its result is unusable: empty when
-                                    output was clearly expected, contradicting its exit code, or garbled.
-                                    """.trimIndent()
-                                )
-                            }
-                            addLog("Plugin", "RTK plugin fully configured and verified.")
-                            true
-                        }
-                        "antislop" -> {
-                            addLog("Plugin", "Installing antislop plugin suite from upstream repository...")
-                            if (pluginDir.exists()) {
-                                pluginDir.deleteRecursively()
-                            }
-                            val cloneExit = EngineExecutor.executeCommand(
-                                context,
-                                "git clone --depth 1 https://github.com/miqdadbadjuber/anti-slop.git '${pluginDir.absolutePath}'"
-                            ) { line, isErr ->
-                                addLog("Plugin", line, isErr)
-                            }
-                            if (cloneExit != 0 || !File(pluginDir, "rules/AGENTS.md").exists()) {
-                                rulesDir.mkdirs()
-                                File(pluginDir, "plugin.json").writeText("{\n  \"name\": \"antislop\"\n}\n")
-                                File(rulesDir, "AGENTS.md").writeText(
-                                    """
-                                    <EXTREMELY_IMPORTANT>
-                                    You use antislop (Anti Slop: Rules for AI Coding Agents). It is a filter, not a style guide: it stops generic AI slop in generated UI, copy, and code, without prescribing aesthetics.
-
-                                    For UI, copy, people, mobile layout, or code comments work, load the matching antislop skill before starting. Each skill is a folder in this plugin's skills/ directory (read its SKILL.md):
-                                    - Core filter, always on: skills/antislop/SKILL.md
-                                    - UI / visual: skills/antislop-ui/SKILL.md
-                                    - Copy & text: skills/antislop-copywriting/SKILL.md
-                                    - People: skills/antislop-human/SKILL.md
-                                    - Mobile / responsive: skills/antislop-layoutmobile/SKILL.md
-                                    - Code comments: skills/antislop-code/SKILL.md
-                                    Before starting, follow the core's "Two Usage Modes" section: explicit session instruction first, then global preference, then ask. For a resolved mode, announce `antislop active: <mode> (session override).` or `antislop active: <mode> (global preference).` once, using the actual mode and source. Ask only when no mode is resolved.
-                                    </EXTREMELY_IMPORTANT>
-                                    """.trimIndent()
-                                )
-                            }
-                            addLog("Plugin", "Anti-slop plugin suite installed.")
-                            syncConfigToRoot(context)
-                            true
-                        }
-                        else -> {
-                            addLog("Plugin", "Configuring plugin '$pluginId'...")
-                            val item = getAvailablePluginsCatalogue().firstOrNull { it.id == pluginId }
-                            val desc = item?.description ?: "Plugin $pluginId"
-                            File(pluginDir, "plugin.json").writeText("{\n  \"name\": \"$pluginId\"\n}\n")
-                            File(rulesDir, "AGENTS.md").writeText("# Plugin: $pluginId\n\n$desc\n")
-                            addLog("Plugin", "Plugin '$pluginId' configured.")
-                            syncConfigToRoot(context)
-                            true
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("AntigravityViewModel", "Error installing plugin $pluginId", e)
-                    addLog("Plugin", "Failed to install plugin $pluginId: ${e.message}", isError = true)
-                    false
-                }
-            }
-            mutableInstallingItemId.value = null
-            refreshPlugins(context)
-            withContext(Dispatchers.Main) {
-                onComplete(success)
-            }
-        }
-    }
-
-    fun installSkillFromCatalogueAsync(context: Context, skillId: String, onComplete: (Boolean) -> Unit) {
-        if (mutableInstallingItemId.value != null) return
-        mutableInstallingItemId.value = skillId
-
-        viewModelScope.launch {
-            val success = withContext(Dispatchers.IO) {
-                try {
-                    val configDir = getGeminiConfigDir(context)
-                    val destDir = File(configDir, "skills/$skillId").apply { mkdirs() }
-                    val builtinDir = getBuiltinSkillsDir(context)
-                    val srcDir = File(builtinDir, skillId)
-
-                    addLog("Skill", "Installing skill '$skillId'...")
-                    if (srcDir.exists() && srcDir.isDirectory) {
-                        srcDir.copyRecursively(destDir, overwrite = true)
-                        syncConfigBidirectional(context)
-                        addLog("Skill", "Skill '$skillId' installed from built-in repository.")
-                        return@withContext true
-                    }
-
-                    val antislopSkillsDir = File(configDir, "plugins/antislop/skills/$skillId")
-                    if (antislopSkillsDir.exists() && antislopSkillsDir.isDirectory) {
-                        antislopSkillsDir.copyRecursively(destDir, overwrite = true)
-                        syncConfigBidirectional(context)
-                        addLog("Skill", "Skill '$skillId' imported from antislop plugin.")
-                        return@withContext true
-                    }
-
-                    val item = getAvailableSkillsCatalogue().firstOrNull { it.id == skillId }
-                    val desc = item?.description ?: "Skill $skillId"
-                    val skillFile = File(destDir, "SKILL.md")
-                    val mdContent = buildString {
-                        appendLine("---")
-                        appendLine("name: $skillId")
-                        appendLine("description: \"$desc\"")
-                        appendLine("---")
-                        appendLine()
-                        appendLine("# $skillId")
-                        appendLine()
-                        appendLine(desc)
-                    }
-                    skillFile.writeText(mdContent)
-                    syncConfigBidirectional(context)
-                    addLog("Skill", "Skill '$skillId' installed.")
-                    true
-                } catch (e: Exception) {
-                    Log.e("AntigravityViewModel", "Failed installing skill: $skillId", e)
-                    addLog("Skill", "Failed to install skill $skillId: ${e.message}", isError = true)
-                    false
-                }
-            }
-            mutableInstallingItemId.value = null
-            refreshSkills(context)
-            withContext(Dispatchers.Main) {
-                onComplete(success)
-            }
-        }
-    }
-
-    fun installSkillFromCatalogue(context: Context, skillId: String): Boolean {
-        installSkillFromCatalogueAsync(context, skillId) {}
-        return true
-    }
-
-    fun installPluginFromCatalogue(context: Context, pluginId: String): Boolean {
-        installPluginFromCatalogueAsync(context, pluginId) {}
-        return true
-    }
-
-    fun calculateTokenUsage(context: Context): TokenUsageStats {
-        return CustomizationCatalogue.calculateTokenUsage(
-            context = context,
-            configDir = getGeminiConfigDir(context),
-            builtinDir = getBuiltinSkillsDir(context)
-        )
     }
 
     fun bootEngine(context: Context, onReady: () -> Unit) {
@@ -3106,189 +1059,6 @@ class AntigravityViewModel : ViewModel() {
             mutableIsBooting.value = false
             onReady()
         }
-    }
-
-    fun startGoogleSignIn(context: Context) {
-        val pendingUrl = mutablePendingAuthUrl.value
-        if (!pendingUrl.isNullOrBlank()) {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(pendingUrl)).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-                addLog("Auth", "Opening official engine PKCE auth URL in browser...")
-                mutableShowGoogleSignInDialog.value = true
-                return
-            } catch (e: Exception) {
-                addLog("Auth", "Failed to open auth URL: ${e.message}", isError = true)
-            }
-        }
-
-        if (mutableIsAuthenticating.value) {
-            mutableShowGoogleSignInDialog.value = true
-            return
-        }
-
-        viewModelScope.launch {
-            mutableIsAuthenticating.value = true
-            mutableAuthError.value = null
-            mutableShowGoogleSignInDialog.value = true
-            addLog("Auth", "Initiating Google OAuth flow on port 8085...")
-
-            OAuthManager.startBrowserAuth(
-                context = context,
-                onSuccess = { email ->
-                    mutableUserEmail.value = email
-                    mutableIsAuthenticating.value = false
-                    mutableShowGoogleSignInDialog.value = false
-                    mutablePendingAuthUrl.value = null
-                    mutableUserQuotaSummary.value = null
-                    mutableCodeAssistTier.value = null
-                    refreshAuthState(context)
-                    CloudCodeQuotaService.restartLocalLanguageServer(context)
-                    restartCoreService(context)
-                    addLog("Auth", "Google sign-in successful: $email")
-                    Toast.makeText(context, context.getString(R.string.auth_signed_in_success, email), Toast.LENGTH_SHORT).show()
-                    viewModelScope.launch {
-                        delay(2500)
-                        refreshUserQuota(context)
-                    }
-                },
-                onError = { err ->
-                    mutableAuthError.value = err
-                    mutableIsAuthenticating.value = false
-                    addLog("Auth", "Google sign-in error: $err", isError = true)
-                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
-                }
-            )
-        }
-    }
-
-    fun onActivityResume(context: Context) {
-        checkForCoreEngineUpdate(context)
-        checkForOtaUpdates(context)
-        OAuthManager.checkAndImportExistingToken(context)
-        val email = OAuthManager.getUserEmail(context)
-        if (email != null && email != mutableUserEmail.value) {
-            mutableUserEmail.value = email
-            mutableUserQuotaSummary.value = null
-            mutableCodeAssistTier.value = null
-            CloudCodeQuotaService.restartLocalLanguageServer(context)
-            restartCoreService(context)
-            addLog("Auth", "Account switch detected on app resume: $email")
-            refreshAuthState(context)
-        } else if (email != null) {
-            if (mutableUserPicture.value.isNullOrBlank()) {
-                val pic = OAuthManager.getUserPicture(context)
-                if (!pic.isNullOrBlank()) {
-                    mutableUserPicture.value = pic
-                } else {
-                    viewModelScope.launch {
-                        val userInfo = OAuthManager.fetchUserInfo(context)
-                        if (!userInfo?.picture.isNullOrBlank()) {
-                            mutableUserPicture.value = userInfo?.picture
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    fun exchangeManualAuthCode(context: Context, rawCodeOrToken: String) {
-        var trimmed = rawCodeOrToken.trim()
-        if (trimmed.isEmpty()) return
-
-        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-            try {
-                val uri = Uri.parse(trimmed)
-                val codeParam = uri.getQueryParameter("code")
-                if (!codeParam.isNullOrBlank()) {
-                    trimmed = codeParam
-                }
-            } catch (e: Exception) {}
-        }
-        if (trimmed.contains("%")) {
-            try {
-                trimmed = java.net.URLDecoder.decode(trimmed, "UTF-8")
-            } catch (e: Exception) {}
-        }
-
-        val sent = EngineExecutor.writeToAgyStdin(trimmed)
-        if (sent) {
-            mutableShowGoogleSignInDialog.value = false
-            mutablePendingAuthUrl.value = null
-            addLog("Auth", "Submitted authorization code directly to active engine stdin")
-            Toast.makeText(context, context.getString(R.string.auth_verifying_code), Toast.LENGTH_SHORT).show()
-            viewModelScope.launch {
-                delay(1500)
-                OAuthManager.checkAndImportExistingToken(context)
-                refreshAuthState(context)
-                restartCoreService(context)
-            }
-            return
-        }
-
-        viewModelScope.launch {
-            mutableIsAuthenticating.value = true
-            mutableAuthError.value = null
-            addLog("Auth", "Processing authentication code/token...")
-
-            OAuthManager.exchangeCodeDirectly(
-                context = context,
-                rawInput = trimmed,
-                onSuccess = { email ->
-                    mutableUserEmail.value = email
-                    mutableIsAuthenticating.value = false
-                    mutableShowGoogleSignInDialog.value = false
-                    mutablePendingAuthUrl.value = null
-                    mutableUserQuotaSummary.value = null
-                    mutableCodeAssistTier.value = null
-                    refreshAuthState(context)
-                    restartCoreService(context)
-                    addLog("Auth", "Google sign-in successful: $email")
-                    Toast.makeText(context, context.getString(R.string.auth_signed_in_success, email), Toast.LENGTH_SHORT).show()
-                    viewModelScope.launch {
-                        delay(2500)
-                        refreshUserQuota(context)
-                    }
-                },
-                onError = { err ->
-                    mutableAuthError.value = err
-                    mutableIsAuthenticating.value = false
-                    addLog("Auth", "Google sign-in error: $err", isError = true)
-                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
-                }
-            )
-        }
-    }
-
-    fun signOutGoogle(context: Context) {
-        OAuthManager.clearToken(context)
-        mutableUserEmail.value = null
-        mutableUserName.value = ""
-        mutableUserPicture.value = null
-        mutableUserQuotaSummary.value = null
-        mutableCodeAssistTier.value = null
-        mutableCliModels.value = emptyList()
-        mutableSelectedModelCliId.value = null
-
-        mutableSelectedModel.value = ""
-        mutableThinkingBudget.value = ""
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit()
-            .remove(KEY_SELECTED_MODEL)
-            .remove(KEY_SELECTED_MODEL_CLI_ID)
-            .remove(KEY_THINKING_BUDGET)
-            .remove(KEY_CLI_MODELS_JSON)
-            .remove(KEY_CLI_MODELS_FETCHED_AT)
-            .remove(OAuthManager.KEY_USER_NAME)
-            .remove(OAuthManager.KEY_USER_PICTURE)
-            .remove(OAuthManager.KEY_USER_EMAIL)
-            .apply()
-        CloudCodeQuotaService.restartLocalLanguageServer(context)
-        restartCoreService(context)
-        addLog("Auth", "Signed out of Google account")
-        Toast.makeText(context, context.getString(R.string.account_toast_signed_out), Toast.LENGTH_SHORT).show()
     }
 
     fun startCoreService(context: Context) {
@@ -3409,14 +1179,6 @@ class AntigravityViewModel : ViewModel() {
         mutableAttachedFiles.update { it.filter { item -> item.id != file.id } }
     }
 
-    fun showGoogleSignInDialog() {
-        mutableShowGoogleSignInDialog.value = true
-    }
-
-    fun dismissGoogleSignInDialog() {
-        mutableShowGoogleSignInDialog.value = false
-    }
-
     fun showModelSelector() {
         mutableShowModelSelector.value = true
     }
@@ -3492,7 +1254,7 @@ class AntigravityViewModel : ViewModel() {
             timestamp = System.currentTimeMillis(),
             messageCount = 1,
             isPinned = false,
-            projectPath = mutableWorkspacePath.value
+            projectPath = workspacePath.value
         )
         val history = ConversationPersistence.loadConversationHistory(context)
         if (history.none { it.id == convId }) {
@@ -3565,7 +1327,7 @@ class AntigravityViewModel : ViewModel() {
     }
 
     fun getWorkspaceFiles(query: String = ""): List<String> {
-        val rootPath = mutableWorkspacePath.value
+        val rootPath = workspacePath.value
         val rootDir = if (!rootPath.isNullOrEmpty()) File(rootPath) else null
         val result = mutableListOf<String>()
 
@@ -3666,7 +1428,7 @@ class AntigravityViewModel : ViewModel() {
             File(context.filesDir, ".gemini/config/workflows"),
             File(context.filesDir, "home/.gemini/config/workflows")
         )
-        val wsPath = mutableWorkspacePath.value
+        val wsPath = workspacePath.value
         if (!wsPath.isNullOrBlank()) {
             val wsDir = File(wsPath)
             dirs.add(File(wsDir, ".gemini/workflows"))
@@ -3700,7 +1462,7 @@ class AntigravityViewModel : ViewModel() {
     ): Pair<Int, String>? {
         val sb = StringBuilder()
         val wsDir = run {
-            val currentWorkspace = mutableWorkspacePath.value
+            val currentWorkspace = workspacePath.value
             val dir = if (!currentWorkspace.isNullOrBlank()) File(currentWorkspace) else null
             if (dir != null && dir.exists() && dir.isDirectory) dir else null
         }
@@ -3748,11 +1510,11 @@ class AntigravityViewModel : ViewModel() {
         if (content.isBlank() && currentAttachments.isEmpty()) return
 
         if (content.trim().equals("/clear", ignoreCase = true)) {
-            val convId = mutableActiveConversationId.value
+            val convId = activeConversationId.value
             mutableChatMessages.value = emptyList()
             if (convId != null) {
                 saveMessagesForConversation(context, convId, emptyList())
-                mutableConversationHistory.update { list ->
+                conversationManagerDelegate.updateConversationHistoryDirect { list ->
                     list.map { if (it.id == convId) it.copy(messageCount = 0) else it }
                 }
                 saveConversationHistory(context)
@@ -3761,7 +1523,7 @@ class AntigravityViewModel : ViewModel() {
         }
 
         if (mutableIsExecuting.value) {
-            if (mutableQueuedMessagesMode.value.equals("Send Immediately", ignoreCase = true)) {
+            if (queuedMessagesMode.value.equals("Send Immediately", ignoreCase = true)) {
                 stopAiExecution()
             } else {
                 queueMessage(content, currentAttachments)
@@ -3770,18 +1532,18 @@ class AntigravityViewModel : ViewModel() {
             }
         }
 
-        var convId = mutableActiveConversationId.value
+        var convId = activeConversationId.value
         val isFirstMessage = (convId == null || mutableChatMessages.value.isEmpty())
         if (convId == null) {
             convId = UUID.randomUUID().toString()
-            mutableActiveConversationId.value = convId
+            conversationManagerDelegate.setActiveConversationIdDirect(convId)
         }
 
-        if (mutableConversationTitle.value == "New Conversation" || mutableConversationTitle.value.isBlank()) {
+        if (conversationTitle.value == "New Conversation" || conversationTitle.value.isBlank()) {
             val titleCandidate = content.lines().firstOrNull { it.isNotBlank() }?.trim()?.take(35)
                 ?: currentAttachments.firstOrNull()?.name?.take(35)
             if (!titleCandidate.isNullOrEmpty()) {
-                mutableConversationTitle.value = titleCandidate
+                conversationManagerDelegate.setConversationTitleDirect(titleCandidate)
             }
         }
 
@@ -3803,13 +1565,13 @@ class AntigravityViewModel : ViewModel() {
 
         val currentSummary = ConversationSummary(
             id = convId,
-            title = mutableConversationTitle.value,
+            title = conversationTitle.value,
             timestamp = System.currentTimeMillis(),
             messageCount = updatedMessages.size,
-            isPinned = mutableIsConversationPinned.value,
-            projectPath = mutableWorkspacePath.value
+            isPinned = isConversationPinned.value,
+            projectPath = workspacePath.value
         )
-        mutableConversationHistory.update { list ->
+        conversationManagerDelegate.updateConversationHistoryDirect { list ->
             listOf(currentSummary) + list.filter { it.id != convId }
         }
         saveConversationHistory(context)
@@ -3819,7 +1581,7 @@ class AntigravityViewModel : ViewModel() {
         val isShellCommand = content.startsWith("!") || content.startsWith("$ ")
         addLog("Chat", "User prompt: ${effectiveContent.take(150)}")
         if (!isShellCommand && !OAuthManager.hasToken(context)) {
-            mutableShowGoogleSignInDialog.value = true
+            authDelegate.showGoogleSignInDialog()
             val assistantMsg = ChatMessage(
                 id = UUID.randomUUID().toString(),
                 role = MessageRole.ASSISTANT,
@@ -3829,7 +1591,7 @@ class AntigravityViewModel : ViewModel() {
             )
             val finalMessages = updatedMessages + assistantMsg
             mutableChatMessages.value = finalMessages
-            mutableConversationHistory.update { list ->
+            conversationManagerDelegate.updateConversationHistoryDirect { list ->
                 list.map { if (it.id == convId) it.copy(messageCount = finalMessages.size) else it }
             }
             saveConversationHistory(context)
@@ -3880,14 +1642,14 @@ class AntigravityViewModel : ViewModel() {
             }
             current.subList(userIdx, endIdx).clear()
             mutableChatMessages.value = current
-            val activeId = mutableActiveConversationId.value
+            val activeId = activeConversationId.value
             if (activeId != null) {
                 saveMessagesForConversation(context, activeId, current)
             }
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            val root = File(mutableWorkspacePath.value)
+            val root = File(workspacePath.value)
             if (root.exists() && File(root, ".git").exists()) {
                 EngineExecutor.executeCommand(
                     context,
@@ -3923,7 +1685,7 @@ class AntigravityViewModel : ViewModel() {
             )
             mutableChatMessages.update { it + initialAssistantMsg }
 
-            val currentWorkspace = mutableWorkspacePath.value
+            val currentWorkspace = workspacePath.value
             val wsDir = if (!currentWorkspace.isNullOrBlank()) File(currentWorkspace) else null
             val validWsDir = if (wsDir != null && wsDir.exists() && wsDir.isDirectory) wsDir else null
 
@@ -4001,11 +1763,11 @@ class AntigravityViewModel : ViewModel() {
                         }
                     }
 
-                    val model = mutableSelectedModel.value
-                    val thinking = mutableThinkingBudget.value
+                    val model = selectedModel.value
+                    val thinking = thinkingBudget.value
                     val outputSb = StringBuilder()
 
-                    val rawCliId = mutableSelectedModelCliId.value?.trim().orEmpty()
+                    val rawCliId = selectedModelCliId.value?.trim().orEmpty()
                     val cliId = AgyModelsService.cleanModelId(rawCliId)
                     val priorCliSession = convIdToCliSessionId[convId]
 
@@ -4038,12 +1800,11 @@ class AntigravityViewModel : ViewModel() {
                         outputSb.clear()
 
                         val args = mutableListOf<String>()
-                        val currentSec = mutableSecurityPreset.value.lowercase()
-                        if (currentSec == "turbo" || currentSec == "turbo mode") {
-                            args.add("--dangerously-skip-permissions")
-                        }
-                        if (currentSec == "default" || currentSec == "standard" || currentSec == "request review" || currentSec == "request_review") {
-                            args.add("--sandbox")
+                        val currentSec = securityPreset.value.lowercase()
+                        args.add("--dangerously-skip-permissions")
+                        if (currentSec == "request review" || currentSec == "request_review") {
+                            args.add("--mode")
+                            args.add("plan")
                         }
                         args.add("--output-format")
                         args.add("stream-json")
@@ -4095,8 +1856,8 @@ class AntigravityViewModel : ViewModel() {
                         val match = authUrlRegex.find(trimmed)
                         if (match != null) {
                             val url = match.value
-                            mutablePendingAuthUrl.value = url
-                            mutableShowGoogleSignInDialog.value = true
+                            authDelegate.setPendingAuthUrl(url)
+                            authDelegate.showGoogleSignInDialog()
                         }
 
                         if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
@@ -4508,19 +2269,19 @@ class AntigravityViewModel : ViewModel() {
                         }
                     }
 
-                    mutablePendingAuthUrl.value = null
+                    authDelegate.setPendingAuthUrl(null)
 
                     if (exitCode == 0) {
                         OAuthManager.checkAndImportExistingToken(context)
                         OAuthManager.syncCompanionStateFiles(context)
-                        mutableUserEmail.value = OAuthManager.getUserEmail(context)
+                        refreshAuthState(context)
                     } else if (authRequired) {
-                        mutableShowGoogleSignInDialog.value = true
+                        authDelegate.showGoogleSignInDialog()
                     }
 
                     val elapsedSec = ((System.currentTimeMillis() - turnStartTime) / 1000).coerceAtLeast(1)
                     val durText = if (elapsedSec >= 60) "${elapsedSec / 60}m" else "${elapsedSec}s"
-                    val turnChanges = computeTurnFileChanges(context, mutableWorkspacePath.value)
+                    val turnChanges = computeTurnFileChanges(context, workspacePath.value)
 
                     val currentSteps = mutableChatMessages.value.find { it.id == assistantMsgId }?.steps.orEmpty()
                     val finalParsed = parseTranscriptTurn(context, activeCliConvId)
@@ -4629,7 +2390,7 @@ class AntigravityViewModel : ViewModel() {
                 mutableRunningTasks.value = emptyList()
                 mutableRunningSubagents.update { list -> list.map { it.copy(isRunning = false) } }
                 val currentList = mutableChatMessages.value
-                mutableConversationHistory.update { list ->
+                conversationManagerDelegate.updateConversationHistoryDirect { list ->
                     list.map { if (it.id == convId) it.copy(messageCount = currentList.size, timestamp = System.currentTimeMillis()) else it }
                 }
                 saveConversationHistory(context)
@@ -4738,50 +2499,6 @@ class AntigravityViewModel : ViewModel() {
                 files = fileList
             )
         } else null
-    }
-
-    suspend fun fetchGitChangedFiles(context: Context, workspacePath: String?): List<ChangedFileItem> = withContext(Dispatchers.IO) {
-        val list = mutableListOf<ChangedFileItem>()
-        val rootDir = workspacePath?.let { File(it) }
-        if (rootDir != null && rootDir.exists() && rootDir.isDirectory && File(rootDir, ".git").exists()) {
-            try {
-                val porcelainRegex = Regex("""^[ MADRCU?!]{1,2}\s+(.+)$""")
-                EngineExecutor.executeCommand(context, "cd '${rootDir.absolutePath}' && git status --porcelain 2>/dev/null") { line, exitCode ->
-                    val trimmed = line.trim()
-                    val match = porcelainRegex.find(trimmed)
-                    if (match != null) {
-                        val rawPath = match.groupValues[1].trim().trim('"', '\'')
-                        val f = File(rawPath)
-                        val name = f.name
-                        val rel = f.parent ?: ""
-                        list.add(ChangedFileItem(name = name, relativePath = rel, isKotlin = name.endsWith(".kt") || name.endsWith(".kts")))
-                    }
-                }
-            } catch (e: Exception) {}
-        }
-        list
-    }
-
-    suspend fun fetchGitDiff(context: Context, workspacePath: String?, relativePath: String): String = withContext(Dispatchers.IO) {
-        val root = workspacePath?.let { File(it) } ?: return@withContext ""
-        if (!root.exists()) return@withContext ""
-        val diffBuilder = StringBuilder()
-        try {
-            EngineExecutor.executeCommand(context, "cd '${root.absolutePath}' && git diff HEAD -- '$relativePath' 2>/dev/null") { line, exitCode ->
-                diffBuilder.append(line).append("\n")
-            }
-        } catch (e: Exception) {}
-        val diff = diffBuilder.toString()
-        if (diff.isNotBlank()) {
-            diff
-        } else {
-            val targetF = File(root, relativePath)
-            if (targetF.exists() && targetF.isFile) {
-                targetF.readLines().take(40).joinToString("\n")
-            } else {
-                "[File modified or newly created]"
-            }
-        }
     }
 
     private fun extractPathFromParams(params: JSONObject?): String =

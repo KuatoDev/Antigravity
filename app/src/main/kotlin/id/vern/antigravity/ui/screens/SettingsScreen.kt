@@ -1938,7 +1938,7 @@ fun ModelsAndUsageSettingsPage(
             }
 
             val availableModels = userQuotaSummary?.availableModels ?: emptyList()
-            val effectiveModels = remember(availableModels, cliModels) {
+            val effectiveModels = remember(userQuotaSummary, availableModels, cliModels) {
                 if (cliModels.isNotEmpty()) {
                     cliModels
                         .filter { AgyModelsService.isRealAiModel(it.cliId, it.displayName) }
@@ -1947,13 +1947,17 @@ fun ModelsAndUsageSettingsPage(
                                 avail.modelId.equals(cli.cliId, ignoreCase = true) ||
                                 avail.displayName.equals(cli.label, ignoreCase = true) ||
                                 avail.displayName.equals(cli.displayName, ignoreCase = true) ||
-                                avail.matches(cli.cliId)
+                                avail.matches(cli.cliId) ||
+                                avail.matches(cli.displayName)
                             }
-                            val pct = matchingAvail?.percentage ?: getModelQuotaPercentage(cli.cliId, userQuotaSummary).first
+                            val pct = matchingAvail?.percentage
+                                ?: getModelQuotaPercentage(cli.cliId, userQuotaSummary).first
+                                ?: getModelQuotaPercentage(cli.displayName, userQuotaSummary).first
                             val isArgon = cli.cliId.contains("argon", ignoreCase = true) || cli.displayName.contains("argon", ignoreCase = true)
                             val resetT = matchingAvail?.resetTime ?: (
                                 if (isArgon) {
                                     userQuotaSummary?.groups?.firstOrNull { it.displayName.contains("argon", ignoreCase = true) }?.buckets?.firstOrNull()?.resetTime
+                                        ?: userQuotaSummary?.groups?.firstOrNull { it.displayName.contains("gemini", ignoreCase = true) && !it.displayName.contains("argon", ignoreCase = true) }?.buckets?.firstOrNull { it.window.equals("weekly", ignoreCase = true) || it.bucketId.contains("weekly", ignoreCase = true) }?.resetTime
                                 } else {
                                     userQuotaSummary?.groups?.firstOrNull { it.displayName.contains("gemini", ignoreCase = true) && !it.displayName.contains("argon", ignoreCase = true) }?.buckets?.firstOrNull()?.resetTime
                                 }

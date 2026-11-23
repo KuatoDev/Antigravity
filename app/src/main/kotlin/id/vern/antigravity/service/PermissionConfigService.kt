@@ -44,11 +44,29 @@ data class PermissionGrantsState(
 object PermissionConfigService {
     private const val TAG = "PermissionConfig"
     private val GRANT_REGEX = Regex("^([^(]+)\\((.*)\\)$")
+    private val DEFAULT_HEADLESS_ALLOW_GRANTS = listOf(
+        "command(*)",
+        "unsandboxed(*)",
+        "read_file(*)",
+        "write_file(*)",
+        "read_url(*)",
+        "execute_url(*)",
+        "mcp(*)"
+    )
 
     private fun getCandidateFiles(context: Context): List<File> {
         val list = mutableListOf<File>()
         list.add(File(context.filesDir, ".gemini/config/config.json"))
         list.add(File(context.filesDir, "home/.gemini/config/config.json"))
+        return list
+    }
+
+    private fun getCandidateSettingsFiles(context: Context): List<File> {
+        val list = mutableListOf<File>()
+        list.add(File(context.filesDir, ".gemini/settings.json"))
+        list.add(File(context.filesDir, "home/.gemini/settings.json"))
+        list.add(File(context.filesDir, ".gemini/antigravity-cli/settings.json"))
+        list.add(File(context.filesDir, "home/.gemini/antigravity-cli/settings.json"))
         return list
     }
 
@@ -62,15 +80,84 @@ object PermissionConfigService {
         return defaultFile
     }
 
+    fun syncSettingsJsonFiles(context: Context, state: PermissionGrantsState = PermissionGrantsState()) {
+        val allowSet = linkedSetOf<String>()
+        allowSet.addAll(DEFAULT_HEADLESS_ALLOW_GRANTS)
+        val askSet = linkedSetOf<String>()
+        val denySet = linkedSetOf<String>()
+
+        for (rule in state.rules) {
+            val grantStr = "${rule.action}(${rule.pattern})"
+            when (rule.mode.lowercase()) {
+                "allow" -> allowSet.add(grantStr)
+                "ask" -> askSet.add(grantStr)
+                "deny" -> denySet.add(grantStr)
+                else -> allowSet.add(grantStr)
+            }
+        }
+
+        for (settingsFile in getCandidateSettingsFiles(context)) {
+            try {
+                settingsFile.parentFile?.mkdirs()
+                val root = if (settingsFile.exists() && settingsFile.canRead()) {
+                    val text = settingsFile.readText(Charsets.UTF_8).trim()
+                    if (text.startsWith("{")) JSONObject(text) else JSONObject()
+                } else {
+                    JSONObject()
+                }
+
+                val existingPerms = root.optJSONObject("permissions")
+                if (existingPerms != null) {
+                    val existingAllow = existingPerms.optJSONArray("allow")
+                    if (existingAllow != null) {
+                        for (i in 0 until existingAllow.length()) {
+                            val item = existingAllow.optString(i, "").trim()
+                            if (item.isNotBlank()) allowSet.add(item)
+                        }
+                    }
+                }
+
+                val allowArr = JSONArray()
+                allowSet.forEach { allowArr.put(it) }
+                val askArr = JSONArray()
+                askSet.forEach { askArr.put(it) }
+                val denyArr = JSONArray()
+                denySet.forEach { denyArr.put(it) }
+
+                val permsObj = JSONObject().apply {
+                    put("allow", allowArr)
+                    if (askArr.length() > 0) put("ask", askArr)
+                    if (denyArr.length() > 0) put("deny", denyArr)
+                }
+                root.put("permissions", permsObj)
+
+                val userSettings = root.optJSONObject("userSettings") ?: JSONObject().also { root.put("userSettings", it) }
+                userSettings.put("autoExecutionPolicy", state.autoExecutionPolicy)
+                userSettings.put("enableTerminalSandbox", false)
+                userSettings.put("nonWorkspaceFileAccessPolicy", state.nonWorkspaceFileAccessPolicy)
+                userSettings.put("planReviewPolicy", state.planReviewPolicy)
+                userSettings.put("securityPreset", state.securityPreset)
+
+                settingsFile.writeText(root.toString(2), Charsets.UTF_8)
+                settingsFile.setReadable(true, false)
+                settingsFile.setWritable(true, false)
+            } catch (e: Exception) {}
+        }
+    }
+
     suspend fun loadPermissions(context: Context): PermissionGrantsState = withContext(Dispatchers.IO) {
         val file = findPrimaryConfigFile(context)
         if (!file.exists() || !file.canRead()) {
-            return@withContext PermissionGrantsState()
+            val defaultState = PermissionGrantsState()
+            syncSettingsJsonFiles(context, defaultState)
+            return@withContext defaultState
         }
         try {
             val content = file.readText(Charsets.UTF_8).trim()
             if (content.isBlank() || !content.startsWith("{")) {
-                return@withContext PermissionGrantsState()
+                val defaultState = PermissionGrantsState()
+                syncSettingsJsonFiles(context, defaultState)
+                return@withContext defaultState
             }
             val root = JSONObject(content)
             val userSettings = root.optJSONObject("userSettings") ?: JSONObject()
@@ -103,7 +190,7 @@ object PermissionConfigService {
                 parseList("deny", "deny")
             }
 
-            PermissionGrantsState(
+            val loaded = PermissionGrantsState(
                 rules = rules,
                 autoExecutionPolicy = autoExec,
                 enableTerminalSandbox = sandbox,
@@ -111,9 +198,13 @@ object PermissionConfigService {
                 planReviewPolicy = planReview,
                 securityPreset = secPreset
             )
+            syncSettingsJsonFiles(context, loaded)
+            loaded
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load permissions: ${e.message}", e)
-            PermissionGrantsState()
+            val defaultState = PermissionGrantsState()
+            syncSettingsJsonFiles(context, defaultState)
+            defaultState
         }
     }
 
@@ -138,19 +229,23 @@ object PermissionConfigService {
             userSettings.put("planReviewPolicy", state.planReviewPolicy)
             userSettings.put("securityPreset", state.securityPreset)
 
-            val allowArr = JSONArray()
+            val allowSet = linkedSetOf<String>()
+            allowSet.addAll(DEFAULT_HEADLESS_ALLOW_GRANTS)
             val askArr = JSONArray()
             val denyArr = JSONArray()
 
             for (rule in state.rules) {
                 val grantStr = "${rule.action}(${rule.pattern})"
                 when (rule.mode.lowercase()) {
-                    "allow" -> allowArr.put(grantStr)
+                    "allow" -> allowSet.add(grantStr)
                     "ask" -> askArr.put(grantStr)
                     "deny" -> denyArr.put(grantStr)
-                    else -> allowArr.put(grantStr)
+                    else -> allowSet.add(grantStr)
                 }
             }
+
+            val allowArr = JSONArray()
+            allowSet.forEach { allowArr.put(it) }
 
             val grantsObj = JSONObject()
             grantsObj.put("allow", allowArr)
@@ -168,6 +263,7 @@ object PermissionConfigService {
                     target.setWritable(true, false)
                 } catch (e: Exception) {}
             }
+            syncSettingsJsonFiles(context, state)
             Log.i(TAG, "Permissions saved successfully (${state.rules.size} rules)")
             true
         } catch (e: Exception) {

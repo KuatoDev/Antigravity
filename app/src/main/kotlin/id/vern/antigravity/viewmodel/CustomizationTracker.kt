@@ -7,8 +7,7 @@ import id.vern.antigravity.executor.EngineExecutor
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
+import id.vern.antigravity.util.NetworkDownloader
 
 object CustomizationTracker {
     private const val PREFS_NAME = "antigravity_prefs"
@@ -232,16 +231,14 @@ object CustomizationTracker {
                 "https://api.github.com/repos/$clean/commits?per_page=1"
             }
 
-            val url = URL(apiUrl)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.setRequestProperty("User-Agent", "Antigravity-Agent")
-            conn.setRequestProperty("Accept", "application/vnd.github.v3+json")
-            conn.connectTimeout = 8000
-            conn.readTimeout = 8000
-
-            if (conn.responseCode in 200..299) {
-                val text = conn.inputStream.bufferedReader().use { it.readText() }
+            val (code, text) = NetworkDownloader.httpGetString(
+                url = apiUrl,
+                headers = mapOf("Accept" to "application/vnd.github.v3+json"),
+                userAgent = "Antigravity-Agent",
+                connectTimeout = 8000,
+                readTimeout = 8000
+            )
+            if (code in 200..299 && !text.isNullOrBlank()) {
                 val array = JSONArray(text)
                 if (array.length() > 0) {
                     val first = array.getJSONObject(0)

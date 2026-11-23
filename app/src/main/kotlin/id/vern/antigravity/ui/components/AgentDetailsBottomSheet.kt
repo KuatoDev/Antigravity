@@ -2,6 +2,7 @@ package id.vern.antigravity.ui.components
 
 import android.content.Context
 import android.os.Environment
+import id.vern.antigravity.util.FileResolver
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -103,10 +104,13 @@ import androidx.compose.ui.unit.sp
 import id.vern.antigravity.R
 import id.vern.antigravity.data.ChangedFileItem
 import id.vern.antigravity.data.OpenTab
+import id.vern.antigravity.data.ArtifactFileItem
 import id.vern.antigravity.ui.theme.AntigravityBlue
 import id.vern.antigravity.ui.theme.AntigravityGreen
 import id.vern.antigravity.ui.theme.AntigravityRed
 import id.vern.antigravity.executor.EngineExecutor
+import id.vern.antigravity.service.TerminalSessionManager
+import id.vern.antigravity.service.TerminalLine
 import id.vern.antigravity.viewmodel.AntigravityViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -122,12 +126,6 @@ data class InstalledSkillItem(
     val path: String
 )
 
-data class ArtifactFileItem(
-    val name: String,
-    val filePath: String,
-    val byteSize: Long
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentDetailsBottomSheet(
@@ -138,7 +136,9 @@ fun AgentDetailsBottomSheet(
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(initialTab) }
-    var activeEditorTab by remember { mutableStateOf<OpenTab?>(null) }
+    val openEditorTabs by viewModel.openEditorTabs.collectAsStateWithLifecycle()
+    val activeEditorTabId by viewModel.activeEditorTabId.collectAsStateWithLifecycle()
+    val activeEditorTab = openEditorTabs.find { it.id == activeEditorTabId }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val workspacePath by viewModel.workspacePath.collectAsStateWithLifecycle()
     val projectList by viewModel.projectList.collectAsStateWithLifecycle()
@@ -150,36 +150,28 @@ fun AgentDetailsBottomSheet(
 
     LaunchedEffect(Unit) {
         viewModel.loadDaemonTasks(context)
+        viewModel.refreshConversationArtifacts(context)
     }
 
     LaunchedEffect(initialFileToOpen) {
         if (!initialFileToOpen.isNullOrBlank()) {
-            val fileToLoad = resolveTargetFile(
+            val fileToLoad = FileResolver.resolveTargetFile(
                 pathOrName = initialFileToOpen,
                 workspacePath = workspacePath,
                 projectList = projectList,
                 context = context
             )
             if (fileToLoad != null) {
-                val content = try {
-                    if (fileToLoad.exists() && fileToLoad.isFile) fileToLoad.readText() else ""
-                } catch (e: Exception) { "" }
-                activeEditorTab = OpenTab(
-                    id = fileToLoad.absolutePath,
-                    file = fileToLoad,
-                    title = fileToLoad.name,
-                    content = content,
-                    originalContent = content
-                )
+                viewModel.openFileInEditor(fileToLoad)
                 selectedTab = 3
             }
         }
     }
 
-    var filesChanged by remember { mutableStateOf<List<ChangedFileItem>>(emptyList()) }
+    val filesChanged by viewModel.gitChangedFiles.collectAsStateWithLifecycle()
     var uploadsList by remember { mutableStateOf<List<UploadedMediaItem>>(emptyList()) }
     var skillsList by remember { mutableStateOf<List<InstalledSkillItem>>(emptyList()) }
-    var artifactsList by remember { mutableStateOf<List<ArtifactFileItem>>(emptyList()) }
+    val artifactsList by viewModel.conversationArtifacts.collectAsStateWithLifecycle()
 
     var expandedFiles by remember { mutableStateOf(true) }
     var expandedUploads by remember { mutableStateOf(true) }
@@ -196,8 +188,8 @@ fun AgentDetailsBottomSheet(
     var reviewFilterType by remember { mutableStateOf("All") }
     var showReviewMoreMenu by remember { mutableStateOf(false) }
     var expandAllDiffs by remember { mutableStateOf(false) }
-    val fileDiffCache = remember { mutableStateMapOf<String, String>() }
-    val loadingDiffs = remember { mutableStateMapOf<String, Boolean>() }
+    val fileDiffCache by viewModel.gitDiffCache.collectAsStateWithLifecycle()
+    val loadingDiffs by viewModel.gitLoadingDiffs.collectAsStateWithLifecycle()
 
     var showTerminalSessionsMenu by remember { mutableStateOf(false) }
     var showTerminalMoreMenu by remember { mutableStateOf(false) }
@@ -210,7 +202,7 @@ fun AgentDetailsBottomSheet(
     val reloadWorkspaceData: () -> Unit = {
         scope.launch(Dispatchers.IO) {
 
-            filesChanged = viewModel.fetchGitChangedFiles(context, workspacePath)
+            viewModel.fetchGitChangedFiles(context, workspacePath)
 
             val currentUploads = mutableListOf<UploadedMediaItem>()
             val msgAttachments = chatMessages.flatMap { it.attachments }
@@ -225,16 +217,7 @@ fun AgentDetailsBottomSheet(
             }
             skillsList = currentSkills
 
-            val currentArtifacts = mutableListOf<ArtifactFileItem>()
-            val brainDir = File(context.filesDir, ".gemini/antigravity-app/brain")
-            if (brainDir.exists() && brainDir.isDirectory) {
-                brainDir.walkTopDown().maxDepth(3).filter {
-                    it.isFile && !it.name.startsWith(".") && it.extension in listOf("md", "json", "png", "jpg", "html")
-                }.take(30).forEach {
-                    currentArtifacts.add(ArtifactFileItem(it.name, it.absolutePath, it.length()))
-                }
-            }
-            artifactsList = currentArtifacts
+            viewModel.refreshConversationArtifacts(context)
         }
     }
 
@@ -242,7 +225,6 @@ fun AgentDetailsBottomSheet(
         val isProjectOpen = !workspacePath.isNullOrBlank() && File(workspacePath ?: "").isDirectory
         if (!isProjectOpen && selectedTab == 3 && activeEditorTab == null) {
             selectedTab = 0
-            activeEditorTab = null
         }
         reloadWorkspaceData()
     }
@@ -292,7 +274,9 @@ fun AgentDetailsBottomSheet(
         modifier = modifier.fillMaxWidth()
     ) {
         BackHandler(enabled = activeEditorTab != null) {
-            activeEditorTab = null
+            if (activeEditorTab != null) {
+                viewModel.closeEditorTab(activeEditorTab.id)
+            }
         }
 
         Column(
@@ -528,14 +512,7 @@ fun AgentDetailsBottomSheet(
                                                 val ws = workspacePath
                                                 val target = if (!ws.isNullOrBlank()) File(ws, file.relativePath) else File(file.relativePath)
                                                 if (target.exists() && target.isFile) {
-                                                    val content = try { target.readText() } catch (e: Exception) { "" }
-                                                    activeEditorTab = OpenTab(
-                                                        id = target.absolutePath,
-                                                        file = target,
-                                                        title = target.name,
-                                                        content = content,
-                                                        originalContent = content
-                                                    )
+                                                    viewModel.openFileInEditor(target)
                                                     selectedTab = 3
                                                 } else {
                                                     selectedTab = 1
@@ -606,14 +583,7 @@ fun AgentDetailsBottomSheet(
                                             .clickable {
                                                 val target = File(art.filePath)
                                                 if (target.exists() && target.isFile) {
-                                                    val content = try { target.readText() } catch (e: Exception) { "" }
-                                                    activeEditorTab = OpenTab(
-                                                        id = target.absolutePath,
-                                                        file = target,
-                                                        title = target.name,
-                                                        content = content,
-                                                        originalContent = content
-                                                    )
+                                                    viewModel.openFileInEditor(target)
                                                     selectedTab = 3
                                                 }
                                             }
@@ -1011,7 +981,7 @@ fun AgentDetailsBottomSheet(
                                             text = { Text(stringResource(R.string.git_refresh_status), fontSize = 13.sp) },
                                             leadingIcon = { Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp)) },
                                             onClick = {
-                                                fileDiffCache.clear()
+                                                viewModel.clearGitDiffCache()
                                                 reloadWorkspaceData()
                                                 showReviewMoreMenu = false
                                                 Toast.makeText(context, "Workspace diff refreshed", Toast.LENGTH_SHORT).show()
@@ -1086,11 +1056,7 @@ fun AgentDetailsBottomSheet(
 
                                     LaunchedEffect(itemExpanded) {
                                         if (itemExpanded && !fileDiffCache.containsKey(fullRelPath)) {
-                                            loadingDiffs[fullRelPath] = true
-                                            scope.launch(Dispatchers.IO) {
-                                                fileDiffCache[fullRelPath] = viewModel.fetchGitDiff(context, workspacePath, fullRelPath)
-                                                loadingDiffs[fullRelPath] = false
-                                            }
+                                            viewModel.fetchGitDiff(context, workspacePath, fullRelPath)
                                         }
                                     }
 
@@ -1145,7 +1111,7 @@ fun AgentDetailsBottomSheet(
                                                         .fillMaxWidth()
                                                         .padding(start = 28.dp, bottom = 8.dp, top = 2.dp)
                                                 ) {
-                                                    if (loadingDiffs[fullRelPath] == true) {
+                                                    if (loadingDiffs.contains(fullRelPath)) {
                                                         Box(
                                                             modifier = Modifier
                                                                 .fillMaxWidth()
@@ -1155,7 +1121,7 @@ fun AgentDetailsBottomSheet(
                                                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                                         }
                                                     } else {
-                                                        val content = fileDiffCache[fullRelPath] ?: "Loading diff..."
+                                                        val content = fileDiffCache[fullRelPath] ?: ""
                                                         Column(modifier = Modifier.padding(10.dp)) {
                                                             content.lines().take(60).forEach { line ->
                                                                 val color = when {
@@ -1409,18 +1375,7 @@ fun AgentDetailsBottomSheet(
                             rootDirectory = rootDir,
                             onFileSelected = { file ->
                                 if (file.isFile) {
-                                    val content = try {
-                                        file.readText()
-                                    } catch (e: Exception) {
-                                        ""
-                                    }
-                                    activeEditorTab = OpenTab(
-                                        id = file.absolutePath,
-                                        file = file,
-                                        title = file.name,
-                                        content = content,
-                                        originalContent = content
-                                    )
+                                    viewModel.openFileInEditor(file)
                                 }
                             },
                             modifier = Modifier.fillMaxSize()
@@ -1429,23 +1384,11 @@ fun AgentDetailsBottomSheet(
                         CodeEditor(
                             tab = currentTab,
                             onSaveFile = { file, newContent ->
-                                try {
-                                    file.writeText(newContent)
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.file_saved_success, file.name),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                } catch (e: Exception) {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.file_saved_error, file.name, e.message ?: ""),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
+                                viewModel.updateEditorContent(currentTab.id, newContent)
+                                viewModel.saveEditorTab(context, currentTab.id)
                             },
                             onCloseTab = {
-                                activeEditorTab = null
+                                viewModel.closeEditorTab(currentTab.id)
                             },
                             onToggleDiff = {},
                             modifier = Modifier.fillMaxSize()
@@ -1595,59 +1538,5 @@ fun FileBadgeIcon(
             modifier = modifier
         )
     }
-}
-
-private fun resolveTargetFile(
-    pathOrName: String,
-    workspacePath: String?,
-    projectList: List<File>,
-    context: Context
-): File? {
-    val trimmed = pathOrName.trim().removeSurrounding("\"").removeSurrounding("'")
-    if (trimmed.isBlank()) return null
-    val direct = File(trimmed)
-    if (direct.isAbsolute && direct.isFile && direct.exists()) {
-        return direct
-    }
-
-    if (!workspacePath.isNullOrBlank()) {
-        val wsDir = File(workspacePath)
-        if (wsDir.isDirectory) {
-            val candidate = File(wsDir, trimmed)
-            if (candidate.isFile && candidate.exists()) return candidate
-            val found = wsDir.walkTopDown().maxDepth(8).firstOrNull {
-                it.isFile && (it.name.equals(direct.name, ignoreCase = true) || it.absolutePath.endsWith(trimmed))
-            }
-            if (found != null) return found
-        }
-    }
-
-    for (pDir in projectList) {
-        if (pDir.isDirectory) {
-            val candidate = File(pDir, trimmed)
-            if (candidate.isFile && candidate.exists()) return candidate
-            val found = pDir.walkTopDown().maxDepth(8).firstOrNull {
-                it.isFile && (it.name.equals(direct.name, ignoreCase = true) || it.absolutePath.endsWith(trimmed))
-            }
-            if (found != null) return found
-        }
-    }
-
-    val commonRoots = listOfNotNull(
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-        File(context.filesDir, "projects"),
-        File(context.filesDir, "home")
-    )
-    for (root in commonRoots) {
-        if (root.isDirectory) {
-            val found = root.walkTopDown().maxDepth(8).firstOrNull {
-                it.isFile && (it.name.equals(direct.name, ignoreCase = true) || it.absolutePath.endsWith(trimmed))
-            }
-            if (found != null) return found
-        }
-    }
-
-    return direct
 }
 

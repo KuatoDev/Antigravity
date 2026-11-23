@@ -42,3 +42,9 @@ data class ChangedFileItem(
     val isKotlin: Boolean = false
 )
 
+data class ArtifactFileItem(
+    val name: String,
+    val filePath: String,
+    val byteSize: Long
+)
+

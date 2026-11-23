@@ -8,7 +8,7 @@ import android.widget.Toast
 import id.vern.antigravity.R
 import id.vern.antigravity.install.CoreUpdateInfo
 import id.vern.antigravity.install.CoreUpdateManager
-import id.vern.antigravity.ui.components.TerminalLine
+import id.vern.antigravity.service.TerminalLine
 import id.vern.antigravity.util.AppUpdateState
 import id.vern.antigravity.util.UpdateChecker
 import kotlinx.coroutines.Dispatchers

@@ -7,6 +7,7 @@ import android.system.OsConstants
 import android.util.Log
 import id.vern.antigravity.oauth.OAuthManager
 import id.vern.antigravity.util.AppLogger
+import id.vern.antigravity.util.NetworkDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -16,8 +17,6 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.RandomAccessFile
-import java.net.HttpURLConnection
-import java.net.URL
 import java.nio.file.Files
 import java.security.MessageDigest
 import java.util.Date
@@ -218,95 +217,16 @@ object BootstrapInstaller {
         while (attempt < maxAttempts) {
             attempt++
             try {
-                var currentUrl = url
-                var redirectCount = 0
-                val maxRedirects = 10
-                var conn: HttpURLConnection? = null
-                val existingSize = if (dest.exists()) dest.length() else 0L
-
-                while (redirectCount < maxRedirects) {
-                    val targetUrl = URL(currentUrl)
-                    conn = (targetUrl.openConnection() as HttpURLConnection).apply {
-                        connectTimeout = 30000
-                        readTimeout = 60000
-                        requestMethod = "GET"
-                        instanceFollowRedirects = true
-                        setRequestProperty("User-Agent", "Antigravity-Android/2.0")
-                        if (existingSize > 0L) {
-                            setRequestProperty("Range", "bytes=$existingSize-")
+                NetworkDownloader.downloadWithResume(
+                    url = url,
+                    dest = dest,
+                    maxAttempts = 1,
+                    onProgress = { bytesRead, totalBytes ->
+                        if (totalBytes > 0) {
+                            onProgress(bytesRead.toFloat() / totalBytes)
                         }
                     }
-
-                    val code = conn.responseCode
-                    if (code in 300..399) {
-                        val location = conn.getHeaderField("Location")
-                        conn.disconnect()
-                        if (!location.isNullOrBlank()) {
-                            currentUrl = if (location.startsWith("http://") || location.startsWith("https://")) {
-                                location
-                            } else {
-                                URL(targetUrl, location).toString()
-                            }
-                            redirectCount++
-                            continue
-                        }
-                    }
-                    break
-                }
-
-                val finalConn = conn ?: throw IllegalStateException("Failed connecting to $url")
-                val responseCode = finalConn.responseCode
-                val appendMode: Boolean
-                val totalLength: Long
-
-                when (responseCode) {
-                    HttpURLConnection.HTTP_PARTIAL -> {
-                        appendMode = true
-                        val contentRange = finalConn.getHeaderField("Content-Range")
-                        val fullSizeFromHeader = contentRange?.substringAfterLast('/')?.toLongOrNull()
-                        val chunkLength = finalConn.contentLengthLong
-                        totalLength = fullSizeFromHeader ?: if (chunkLength > 0) existingSize + chunkLength else -1L
-                        Log.i(TAG, "Resuming bootstrap download from byte $existingSize (total: $totalLength)")
-                    }
-                    HttpURLConnection.HTTP_OK -> {
-                        appendMode = false
-                        totalLength = finalConn.contentLengthLong
-                        Log.i(TAG, "Starting fresh bootstrap download (total: $totalLength)")
-                    }
-                    416 -> {
-                        finalConn.disconnect()
-                        val hash = calculateFileSha256(dest)
-                        if (hash.equals(expectedSha256, ignoreCase = true)) {
-                            onProgress(1.0f)
-                            return
-                        }
-                        dest.delete()
-                        continue
-                    }
-                    else -> {
-                        finalConn.disconnect()
-                        throw IOException("HTTP request failed with status code $responseCode")
-                    }
-                }
-
-                finalConn.inputStream.use { input ->
-                    FileOutputStream(dest, appendMode).use { out ->
-                        val buffer = ByteArray(65536)
-                        var read: Int
-                        var totalRead = if (appendMode) existingSize else 0L
-                        var lastReport = 0L
-
-                        while (input.read(buffer).also { read = it } != -1) {
-                            out.write(buffer, 0, read)
-                            totalRead += read
-                            if (totalLength > 0 && totalRead - lastReport > 512 * 1024) {
-                                lastReport = totalRead
-                                onProgress(totalRead.toFloat() / totalLength)
-                            }
-                        }
-                        out.flush()
-                    }
-                }
+                )
 
                 val actual = calculateFileSha256(dest)
                 if (actual.equals(expectedSha256, ignoreCase = true)) {

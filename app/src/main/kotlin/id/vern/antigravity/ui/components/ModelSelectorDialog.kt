@@ -135,40 +135,53 @@ internal fun getModelQuotaPercentage(
     summary: UserQuotaSummary?
 ): Pair<Int?, String?> {
     if (summary == null) return Pair(null, null)
-    val matchingAvail = summary.availableModels.firstOrNull { it.matches(modelId) }
-    if (matchingAvail != null && matchingAvail.percentage != null) {
-        val sub = matchingAvail.resetTime?.let { id.vern.antigravity.service.CloudCodeQuotaService.formatSubtext(it) }
-        return Pair(matchingAvail.percentage, sub)
-    }
     val geminiGroup = summary.groups.firstOrNull { it.displayName.contains("gemini", ignoreCase = true) && !it.displayName.contains("argon", ignoreCase = true) }
     val argonGroup = summary.groups.firstOrNull { it.displayName.contains("argon", ignoreCase = true) }
     val thirdPartyGroup = summary.groups.firstOrNull {
         it.displayName.contains("claude", ignoreCase = true) || it.displayName.contains("gpt", ignoreCase = true)
     }
 
+    val isFlashOrNeon = modelId.contains("Flash", ignoreCase = true) || modelId.contains("Neon", ignoreCase = true)
+    if (isFlashOrNeon) {
+        val fiveHB = geminiGroup?.buckets?.firstOrNull { it.window.equals("5h", ignoreCase = true) || it.bucketId.contains("5h", ignoreCase = true) }
+        val weeklyB = geminiGroup?.buckets?.firstOrNull { it.window.equals("weekly", ignoreCase = true) || it.bucketId.contains("weekly", ignoreCase = true) }
+        if (fiveHB != null && weeklyB != null) {
+            val sub = "${fiveHB.subtext ?: ""} (Weekly: ${weeklyB.percentage}%)".trim()
+            return Pair(fiveHB.percentage, sub)
+        }
+    }
+
+    val matchingAvail = summary.availableModels.firstOrNull { it.matches(modelId) }
+    if (matchingAvail != null && matchingAvail.percentage != null) {
+        val sub = matchingAvail.resetTime?.let { id.vern.antigravity.service.CloudCodeQuotaService.formatSubtext(it) }
+        return Pair(matchingAvail.percentage, sub)
+    }
+
     return when {
         modelId.contains("Argon", ignoreCase = true) -> {
-            val weeklyB = argonGroup?.buckets?.firstOrNull { it.window == "weekly" || it.bucketId.contains("weekly") }
+            val weeklyB = argonGroup?.buckets?.firstOrNull { it.window.equals("weekly", ignoreCase = true) || it.bucketId.contains("weekly", ignoreCase = true) }
                 ?: argonGroup?.buckets?.firstOrNull()
-            Pair(weeklyB?.percentage, weeklyB?.subtext)
+                ?: geminiGroup?.buckets?.firstOrNull { it.window.equals("weekly", ignoreCase = true) || it.bucketId.contains("weekly", ignoreCase = true) }
+            val sub = weeklyB?.subtext ?: matchingAvail?.resetTime?.let { id.vern.antigravity.service.CloudCodeQuotaService.formatSubtext(it) }
+            val pct = weeklyB?.percentage ?: if (matchingAvail?.resetTime != null) 0 else null
+            Pair(pct, sub)
         }
-        modelId.contains("Flash", ignoreCase = true) || modelId.contains("Neon", ignoreCase = true) -> {
-            val fiveHB = geminiGroup?.buckets?.firstOrNull { it.window == "5h" || it.bucketId.contains("5h") }
-            val weeklyB = geminiGroup?.buckets?.firstOrNull { it.window == "weekly" || it.bucketId.contains("weekly") }
-            if (fiveHB != null && weeklyB != null) {
-                val sub = "${fiveHB.subtext ?: ""} (Weekly: ${weeklyB.percentage}%)".trim()
-                Pair(fiveHB.percentage, sub)
-            } else {
-                val b = fiveHB ?: weeklyB
-                Pair(b?.percentage, b?.subtext)
-            }
+        isFlashOrNeon -> {
+            val fiveHB = geminiGroup?.buckets?.firstOrNull { it.window.equals("5h", ignoreCase = true) || it.bucketId.contains("5h", ignoreCase = true) }
+            val weeklyB = geminiGroup?.buckets?.firstOrNull { it.window.equals("weekly", ignoreCase = true) || it.bucketId.contains("weekly", ignoreCase = true) }
+            val b = fiveHB ?: weeklyB
+            Pair(b?.percentage, b?.subtext)
         }
-        modelId.contains("Carbon", ignoreCase = true) || modelId.contains("Gemini", ignoreCase = true) -> {
-            val weeklyB = geminiGroup?.buckets?.firstOrNull { it.window == "weekly" || it.bucketId.contains("weekly") }
-            Pair(weeklyB?.percentage, weeklyB?.subtext)
+        modelId.contains("Hydrogen", ignoreCase = true) || modelId.contains("Carbon", ignoreCase = true) || modelId.contains("Gemini", ignoreCase = true) -> {
+            val weeklyB = geminiGroup?.buckets?.firstOrNull { it.window.equals("weekly", ignoreCase = true) || it.bucketId.contains("weekly", ignoreCase = true) }
+                ?: geminiGroup?.buckets?.firstOrNull()
+            val sub = weeklyB?.subtext ?: matchingAvail?.resetTime?.let { id.vern.antigravity.service.CloudCodeQuotaService.formatSubtext(it) }
+            val pct = weeklyB?.percentage ?: if (matchingAvail?.resetTime != null) 0 else null
+            Pair(pct, sub)
         }
-        modelId.contains("Claude", ignoreCase = true) || modelId.contains("GPT", ignoreCase = true) -> {
-            val b = thirdPartyGroup?.buckets?.firstOrNull { it.window == "weekly" || it.bucketId.contains("weekly") }
+        modelId.contains("Claude", ignoreCase = true) || modelId.contains("Sonnet", ignoreCase = true) || modelId.contains("Opus", ignoreCase = true) || modelId.contains("GPT", ignoreCase = true) -> {
+            val b = thirdPartyGroup?.buckets?.firstOrNull { it.window.equals("weekly", ignoreCase = true) || it.bucketId.contains("weekly", ignoreCase = true) }
+                ?: thirdPartyGroup?.buckets?.firstOrNull()
             Pair(b?.percentage, b?.subtext)
         }
         else -> Pair(null, null)

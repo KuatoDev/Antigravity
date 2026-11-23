@@ -4,8 +4,7 @@ import android.content.Context
 import android.util.Log
 import org.json.JSONArray
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
+import id.vern.antigravity.util.NetworkDownloader
 
 object CustomizationCatalogue {
 
@@ -413,27 +412,15 @@ object CustomizationCatalogue {
         return try {
             val cacheDir = File(context.filesDir, "cache").apply { mkdirs() }
 
-            val skillsUrl = URL("https://raw.githubusercontent.com/KuatoDev/antigravity-catalogue/main/skills.json")
-            val skillsConn = (skillsUrl.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 10000
-                readTimeout = 10000
-                requestMethod = "GET"
-            }
-            val skillsJson = skillsConn.inputStream.bufferedReader().use { it.readText() }
-            val parsedSkills = parseCatalogueJson(skillsJson, false)
-            if (parsedSkills.isNotEmpty()) {
+            val (_, skillsJson) = NetworkDownloader.httpGetString("https://raw.githubusercontent.com/KuatoDev/antigravity-catalogue/main/skills.json", connectTimeout = 10000, readTimeout = 10000)
+            val parsedSkills = if (!skillsJson.isNullOrBlank()) parseCatalogueJson(skillsJson, false) else emptyList()
+            if (parsedSkills.isNotEmpty() && skillsJson != null) {
                 try { File(cacheDir, "skills_catalogue.json").writeText(skillsJson) } catch (e: Exception) {}
             }
 
-            val pluginsUrl = URL("https://raw.githubusercontent.com/KuatoDev/antigravity-catalogue/main/plugins.json")
-            val pluginsConn = (pluginsUrl.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 10000
-                readTimeout = 10000
-                requestMethod = "GET"
-            }
-            val pluginsJson = pluginsConn.inputStream.bufferedReader().use { it.readText() }
-            val parsedPlugins = parseCatalogueJson(pluginsJson, true)
-            if (parsedPlugins.isNotEmpty()) {
+            val (_, pluginsJson) = NetworkDownloader.httpGetString("https://raw.githubusercontent.com/KuatoDev/antigravity-catalogue/main/plugins.json", connectTimeout = 10000, readTimeout = 10000)
+            val parsedPlugins = if (!pluginsJson.isNullOrBlank()) parseCatalogueJson(pluginsJson, true) else emptyList()
+            if (parsedPlugins.isNotEmpty() && pluginsJson != null) {
                 try { File(cacheDir, "plugins_catalogue.json").writeText(pluginsJson) } catch (e: Exception) {}
             }
 

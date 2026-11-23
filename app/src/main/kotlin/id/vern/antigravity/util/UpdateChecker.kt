@@ -35,26 +35,13 @@ class UpdateChecker(private val context: Context) {
     }
 
     private fun fetchGitHubApi(apiUrl: String): Pair<Int, String?> {
-        return try {
-            val url = URL(apiUrl)
-            val connection = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                setRequestProperty("Accept", "application/vnd.github.v3+json")
-                setRequestProperty("User-Agent", "Antigravity-OTA-Checker")
-                connectTimeout = 15000
-                readTimeout = 15000
-            }
-            val code = connection.responseCode
-            val text = if (code in 200..299) {
-                connection.inputStream.bufferedReader().use { it.readText() }
-            } else {
-                connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
-            }
-            connection.disconnect()
-            Pair(code, text)
-        } catch (e: Exception) {
-            Pair(-1, e.localizedMessage ?: e.javaClass.simpleName)
-        }
+        return NetworkDownloader.httpGetString(
+            url = apiUrl,
+            headers = mapOf("Accept" to "application/vnd.github.v3+json"),
+            userAgent = "Antigravity-OTA-Checker",
+            connectTimeout = 15000,
+            readTimeout = 15000
+        )
     }
 
     suspend fun checkForUpdates(
