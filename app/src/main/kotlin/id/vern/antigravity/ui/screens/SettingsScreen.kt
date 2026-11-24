@@ -1953,15 +1953,15 @@ fun ModelsAndUsageSettingsPage(
                             val pct = matchingAvail?.percentage
                                 ?: getModelQuotaPercentage(cli.cliId, userQuotaSummary).first
                                 ?: getModelQuotaPercentage(cli.displayName, userQuotaSummary).first
-                            val isArgon = cli.cliId.contains("argon", ignoreCase = true) || cli.displayName.contains("argon", ignoreCase = true)
-                            val resetT = matchingAvail?.resetTime ?: (
-                                if (isArgon) {
-                                    userQuotaSummary?.groups?.firstOrNull { it.displayName.contains("argon", ignoreCase = true) }?.buckets?.firstOrNull()?.resetTime
-                                        ?: userQuotaSummary?.groups?.firstOrNull { it.displayName.contains("gemini", ignoreCase = true) && !it.displayName.contains("argon", ignoreCase = true) }?.buckets?.firstOrNull { it.window.equals("weekly", ignoreCase = true) || it.bucketId.contains("weekly", ignoreCase = true) }?.resetTime
-                                } else {
-                                    userQuotaSummary?.groups?.firstOrNull { it.displayName.contains("gemini", ignoreCase = true) && !it.displayName.contains("argon", ignoreCase = true) }?.buckets?.firstOrNull()?.resetTime
+                            val resetT = matchingAvail?.resetTime ?: run {
+                                val ownerGroup = userQuotaSummary?.groups?.firstOrNull { g ->
+                                    g.modelIds.contains(cli.cliId) ||
+                                    g.sharedModels.any { shared ->
+                                        id.vern.antigravity.data.AvailableModelInfo.normalizeForMatch(shared) == id.vern.antigravity.data.AvailableModelInfo.normalizeForMatch(cli.displayName)
+                                    }
                                 }
-                            )
+                                ownerGroup?.buckets?.firstOrNull()?.resetTime
+                            }
                             val availStatus = matchingAvail?.availability ?: ModelAvailability.AVAILABLE
                             AvailableModelInfo(
                                 modelId = cli.cliId,
