@@ -337,11 +337,11 @@ object CloudCodeQuotaService {
         val t = mObj?.optString("title")?.ifBlank { null }
             ?: mObj?.optString("label")?.ifBlank { null }
             ?: mObj?.optString("name")?.ifBlank { null }
-        if (!t.isNullOrBlank() && !t.contains("-tiered", ignoreCase = true) && !t.startsWith("gemini-", ignoreCase = true)) {
+        if (!t.isNullOrBlank() && !t.equals("None", ignoreCase = true) && !t.contains("-tiered", ignoreCase = true) && !t.startsWith("gemini-", ignoreCase = true) && !AgyModelsService.hasVersionMismatch(key, t)) {
             return AgyModelsService.cleanDisplayName(t)
         }
         val d = mObj?.optString("displayName")?.ifBlank { null }
-        if (!d.isNullOrBlank() && !d.contains("-tiered", ignoreCase = true) && !d.startsWith("gemini-", ignoreCase = true)) {
+        if (!d.isNullOrBlank() && !d.equals("None", ignoreCase = true) && !d.contains("-tiered", ignoreCase = true) && !d.startsWith("gemini-", ignoreCase = true) && !AgyModelsService.hasVersionMismatch(key, d)) {
             return AgyModelsService.cleanDisplayName(d)
         }
         return AgyModelsService.displayNameForId(key)

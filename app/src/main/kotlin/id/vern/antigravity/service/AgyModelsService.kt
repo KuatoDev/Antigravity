@@ -358,14 +358,28 @@ object AgyModelsService {
         )
     }
 
+    private val VERSION_TOKEN_REGEX = Regex("\\b\\d+(?:\\.\\d+)+\\b")
+
+    fun hasVersionMismatch(id: String, candidateDisplayName: String): Boolean {
+        if (id.isBlank() || candidateDisplayName.isBlank()) return false
+        val idDisplay = displayNameForId(id)
+        val idVersions = VERSION_TOKEN_REGEX.findAll(idDisplay).map { it.value }.toSet()
+        val candidateVersions = VERSION_TOKEN_REGEX.findAll(candidateDisplayName).map { it.value }.toSet()
+        return idVersions.isNotEmpty() && candidateVersions.isNotEmpty() && idVersions != candidateVersions
+    }
+
     fun cliModelFromBackendEntry(id: String, entry: JSONObject?): CliModel? {
         val cleanId = cleanModelId(id)
         val obj = JSONObject()
         obj.put("id", cleanId)
         if (entry != null) {
-            for (key in listOf("displayName", "title", "modelProvider")) {
+            val prov = entry.optString("modelProvider", "")
+            if (prov.isNotBlank()) obj.put("modelProvider", prov)
+            for (key in listOf("displayName", "title")) {
                 val value = entry.optString(key, "")
-                if (value.isNotBlank()) obj.put(key, value)
+                if (value.isNotBlank() && !value.equals("None", ignoreCase = true) && !hasVersionMismatch(cleanId, value)) {
+                    obj.put(key, value)
+                }
             }
         }
         val model = jsonToModel(obj) ?: return null

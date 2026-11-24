@@ -480,10 +480,72 @@ object EngineExecutor {
         }
     }
 
+    private fun resolveAcpModelCandidates(
+        requestedModelId: String,
+        thinkingEffort: String?,
+        sessionResult: JSONObject?
+    ): List<String> {
+        val raw = requestedModelId.trim()
+        if (raw.isEmpty()) return emptyList()
+
+        val effortLower = thinkingEffort?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: "high"
+        val strippedTiered = raw
+            .replace(Regex("[-_]tiered(?=[-_]|$)", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("\\s*\\([^)]*\\)", RegexOption.IGNORE_CASE), "")
+            .trim()
+            .lowercase()
+            .replace(" ", "-")
+        val baseWithoutEffort = strippedTiered.replace(
+            Regex("[-_](?:thinking|high|medium|low|xhigh|max)$", RegexOption.IGNORE_CASE),
+            ""
+        )
+
+        val availableIds = mutableListOf<String>()
+        val availArr = sessionResult?.optJSONObject("models")?.optJSONArray("availableModels")
+        if (availArr != null) {
+            for (i in 0 until availArr.length()) {
+                val id = availArr.optJSONObject(i)?.optString("modelId")?.trim().orEmpty()
+                if (id.isNotEmpty()) availableIds.add(id)
+            }
+        }
+
+        val candidates = linkedSetOf<String>()
+        if (availableIds.isNotEmpty()) {
+            // 1. Exact match in availableModels
+            availableIds.firstOrNull { it.equals(raw, ignoreCase = true) }?.let { candidates.add(it) }
+            availableIds.firstOrNull { it.equals(strippedTiered, ignoreCase = true) }?.let { candidates.add(it) }
+            // 2. Base + requested effort
+            availableIds.firstOrNull { it.equals("$baseWithoutEffort-$effortLower", ignoreCase = true) }?.let { candidates.add(it) }
+            // 3. Base + common efforts
+            for (eff in listOf("high", "medium", "low", "xhigh")) {
+                availableIds.firstOrNull { it.equals("$baseWithoutEffort-$eff", ignoreCase = true) }?.let { candidates.add(it) }
+            }
+            // 4. Prefix / family match (e.g. gemini-4-hydrogen-sonar -> gemini-4-hydrogen-high)
+            val familyPrefix = baseWithoutEffort.split("-").take(3).joinToString("-")
+            if (familyPrefix.isNotEmpty()) {
+                availableIds.firstOrNull { it.equals("$familyPrefix-$effortLower", ignoreCase = true) }?.let { candidates.add(it) }
+                availableIds.firstOrNull { it.startsWith("$familyPrefix-", ignoreCase = true) }?.let { candidates.add(it) }
+            }
+        }
+
+        // Also add direct candidates when session/resume doesn't return availableModels list
+        if (strippedTiered != raw.lowercase()) {
+            candidates.add("$baseWithoutEffort-$effortLower")
+        }
+        candidates.add(raw)
+        candidates.add("$baseWithoutEffort-$effortLower")
+        candidates.add("$baseWithoutEffort-high")
+        candidates.add("$baseWithoutEffort-medium")
+        candidates.add(baseWithoutEffort)
+
+        return candidates.filter { it.isNotBlank() }
+    }
+
     suspend fun executeAgyAcpTurn(
         context: Context,
         prompt: String,
         cliModelId: String? = null,
+        thinkingEffort: String? = null,
         sessionToResume: String? = null,
         workingDir: File? = null,
         onOutputLine: (String, Boolean) -> Unit
@@ -498,33 +560,80 @@ object EngineExecutor {
         val engineDir = File(filesDir, "engine")
         val prefixDir = File(filesDir, "usr")
         val prefixLib = File(prefixDir, "lib")
-        val libDir = File(engineDir, "glibc/lib")
-        val ldBin = File(libDir, "ld-linux-aarch64.so.1")
-        val agyBin = File(engineDir, "bin/agy")
+        val agyBin = listOf(
+            File(engineDir, "bin/agy"),
+            File(filesDir, "tmp/engine/bin/agy"),
+            File(filesDir, "runtime/bin/agy")
+        ).firstOrNull { it.exists() && it.isFile } ?: File(engineDir, "bin/agy")
+        val ldBin = listOf(
+            File(engineDir, "glibc/lib/ld-linux-aarch64.so.1"),
+            File(filesDir, "runtime/lib/ld-linux-aarch64.so.1"),
+            File(filesDir, "tmp/engine/glibc/lib/ld-linux-aarch64.so.1")
+        ).firstOrNull { it.exists() && it.isFile } ?: File(engineDir, "glibc/lib/ld-linux-aarch64.so.1")
         val certFile = File(prefixDir, "etc/tls/cert.pem")
+        val opensslConf = File(prefixDir, "etc/tls/openssl.cnf")
+        val usrBinAgy = File(prefixDir, "bin/agy")
 
-        if (!ldBin.exists() || !agyBin.exists()) {
+        val canRunDirect = ldBin.exists() && agyBin.exists()
+        if (!canRunDirect && !usrBinAgy.exists()) {
             return@withContext ACP_UNAVAILABLE
         }
 
         try {
+            BootstrapInstaller.ensurePermissions(context)
             OAuthManager.checkAndImportExistingToken(context)
             OAuthManager.syncCompanionStateFiles(context)
+
+            val gitConfig = File(homeDir, ".gitconfig")
+            val safeLine = "[safe]\n\tdirectory = *\n"
+            if (!gitConfig.exists()) {
+                gitConfig.writeText(safeLine)
+            } else if (!gitConfig.readText().contains("directory = *")) {
+                gitConfig.appendText("\n$safeLine")
+            }
+
+            val rootConfig = File(filesDir, ".gemini/config")
+            val homeConfig = File(homeDir, ".gemini/config")
+            if (rootConfig.exists() && (!homeConfig.exists() || homeConfig.list().isNullOrEmpty())) {
+                homeConfig.mkdirs()
+                rootConfig.copyRecursively(homeConfig, overwrite = false)
+            } else if (homeConfig.exists() && (!rootConfig.exists() || rootConfig.list().isNullOrEmpty())) {
+                rootConfig.mkdirs()
+                homeConfig.copyRecursively(rootConfig, overwrite = false)
+            }
+
             id.vern.antigravity.service.PermissionConfigService.syncSettingsJsonFiles(context)
         } catch (_: Exception) {}
 
-        val libraryPaths = listOf(libDir.absolutePath, prefixLib.absolutePath)
-            .filter { File(it).exists() }
-            .joinToString(":")
+        val libraryPaths = listOf(
+            File(filesDir, "runtime/lib").absolutePath,
+            File(engineDir, "glibc/lib").absolutePath,
+            File(filesDir, "tmp/engine/glibc/lib").absolutePath,
+            prefixLib.absolutePath
+        ).filter { File(it).exists() }.distinct().joinToString(":")
 
-        val cmdList = mutableListOf(
-            ldBin.absolutePath,
-            "--library-path",
-            libraryPaths,
-            agyBin.absolutePath,
-            "acp",
-            "--dangerously-skip-permissions"
-        )
+        val cmdList = if (canRunDirect) {
+            mutableListOf(
+                ldBin.absolutePath,
+                "--library-path",
+                libraryPaths,
+                agyBin.absolutePath,
+                "acp",
+                "--dangerously-skip-permissions"
+            )
+        } else {
+            val shellBin = when {
+                File(prefixDir, "bin/bash").canExecute() -> File(prefixDir, "bin/bash").absolutePath
+                File(prefixDir, "bin/sh").canExecute() -> File(prefixDir, "bin/sh").absolutePath
+                else -> "/system/bin/sh"
+            }
+            mutableListOf(
+                shellBin,
+                usrBinAgy.absolutePath,
+                "acp",
+                "--dangerously-skip-permissions"
+            )
+        }
         if (workingDir != null && workingDir.exists() && workingDir.isDirectory) {
             cmdList.add("--add-dir")
             cmdList.add(workingDir.absolutePath)
@@ -535,6 +644,14 @@ object EngineExecutor {
 
         val gitExecDir = File(prefixDir, "libexec/git-core")
         val validGitExec = if (gitExecDir.exists() && gitExecDir.isDirectory) gitExecDir else null
+        if (validGitExec != null && !isGitPermissionsSet) {
+            validGitExec.listFiles()?.forEach { file ->
+                file.setReadable(true, false)
+                file.setExecutable(true, false)
+                try { Os.chmod(file.absolutePath, 493) } catch (_: Exception) {}
+            }
+            isGitPermissionsSet = true
+        }
         val validGitTemplate = File(prefixDir, "share/git-core/templates").apply { mkdirs() }
 
         val env = pb.environment()
@@ -556,6 +673,10 @@ object EngineExecutor {
         if (certFile.exists()) {
             env["SSL_CERT_FILE"] = certFile.absolutePath
             env["CURL_CA_BUNDLE"] = certFile.absolutePath
+            env["GIT_SSL_CAINFO"] = certFile.absolutePath
+        }
+        if (opensslConf.exists()) {
+            env["OPENSSL_CONF"] = opensslConf.absolutePath
         }
         env["GODEBUG"] = "netdns=cgo"
         env["AGY_APPLICATION_ID"] = context.packageName
@@ -608,21 +729,37 @@ object EngineExecutor {
         }
 
         fun extractToolOutput(upd: JSONObject): String? {
-            val rawOut = upd.optString("output").ifBlank { upd.optString("rawOutput") }
-            if (rawOut.isNotBlank()) return rawOut
-            val contentArr = upd.optJSONArray("content") ?: return null
-            val sb = StringBuilder()
-            for (i in 0 until contentArr.length()) {
-                val item = contentArr.optJSONObject(i) ?: continue
-                val text = item.optString("text").ifBlank {
-                    item.optJSONObject("content")?.optString("text") ?: ""
+            val contentArr = upd.optJSONArray("content")
+            if (contentArr != null) {
+                val sb = StringBuilder()
+                for (i in 0 until contentArr.length()) {
+                    val item = contentArr.optJSONObject(i) ?: continue
+                    val text = item.optString("text").ifBlank {
+                        item.optJSONObject("content")?.optString("text") ?: ""
+                    }
+                    if (text.isNotBlank()) {
+                        if (sb.isNotEmpty()) sb.append("\n")
+                        sb.append(text)
+                    }
                 }
-                if (text.isNotBlank()) {
-                    if (sb.isNotEmpty()) sb.append("\n")
-                    sb.append(text)
-                }
+                if (sb.isNotEmpty()) return sb.toString()
             }
-            return sb.toString().ifBlank { null }
+            val directOut = upd.opt("output")
+            if (directOut is String && directOut.isNotBlank()) return directOut
+            val rawOut = upd.opt("rawOutput")
+            if (rawOut is JSONObject) {
+                val extracted = rawOut.optString("output").ifBlank {
+                    rawOut.optString("stdout").ifBlank {
+                        rawOut.optString("content").ifBlank {
+                            rawOut.optString("result")
+                        }
+                    }
+                }
+                if (extracted.isNotBlank()) return extracted
+            } else if (rawOut is String && rawOut.isNotBlank() && rawOut != "null") {
+                return rawOut
+            }
+            return null
         }
 
         return@withContext try {
@@ -771,13 +908,20 @@ object EngineExecutor {
                 put("conversation_id", activeSessionId)
             }.toString(), false)
 
-            // 3. Select model if specified
+            // 3. Select model if specified, resolving against ACP availableModels
             if (!cliModelId.isNullOrBlank()) {
-                sendRpc(nextId, "session/set_model", JSONObject().apply {
-                    put("sessionId", activeSessionId)
-                    put("modelId", cliModelId)
-                })
-                readUntilResponse(nextId++)
+                val sessionResult = sessionResp.optJSONObject("result")
+                val candidates = resolveAcpModelCandidates(cliModelId, thinkingEffort, sessionResult)
+                for (candidate in candidates) {
+                    sendRpc(nextId, "session/set_model", JSONObject().apply {
+                        put("sessionId", activeSessionId)
+                        put("modelId", candidate)
+                    })
+                    val setModelResp = readUntilResponse(nextId++)
+                    if (setModelResp != null && !setModelResp.has("error")) {
+                        break
+                    }
+                }
             }
 
             // 4. Run prompt turn

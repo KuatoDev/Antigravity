@@ -2283,7 +2283,8 @@ class AntigravityViewModel : ViewModel() {
                             EngineExecutor.executeAgyAcpTurn(
                                 context = context,
                                 prompt = currentPrompt,
-                                cliModelId = cliId.ifBlank { null },
+                                cliModelId = cliId.ifBlank { selectedModel.value.ifBlank { null } },
+                                thinkingEffort = thinkingBudget.value,
                                 sessionToResume = sessionToResume,
                                 workingDir = validWsDir,
                                 onOutputLine = onAgyLine
