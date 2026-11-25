@@ -47,30 +47,33 @@ object AgyModelsService {
         lastQueryTimeMs = 0L
     }
 
+    private val MODEL_SLUG_REGEX = Regex("^[a-z][a-z0-9._-]{1,80}$")
+    private val NON_MODEL_TOKENS = setOf(
+        "error", "warning", "usage", "fetching", "loading", "status", "success", "failed", "none", "null", "default", "unknown"
+    )
+
     fun isRealAiModel(modelId: String, displayName: String = ""): Boolean {
         val cleanId = modelId.trim().lowercase()
         val cleanName = displayName.trim().lowercase()
-        if (cleanId.isEmpty()) return false
+        if (cleanId.isEmpty() || cleanId in NON_MODEL_TOKENS) return false
+        if (!MODEL_SLUG_REGEX.matches(cleanId)) return false
+        if (cleanId.contains("..") || cleanId.endsWith(".json") || cleanId.endsWith(".md") || cleanId.endsWith(".kt") || cleanId.endsWith(".sh")) return false
 
         if (cleanId.startsWith("chat_") || cleanId.startsWith("chat-") || cleanName.startsWith("chat_") || cleanName.startsWith("chat-")) return false
         if (cleanId.startsWith("tab_") || cleanId.startsWith("tab-") || cleanName.startsWith("tab_") || cleanName.startsWith("tab-")) return false
+        if (cleanId.startsWith("mquery") || cleanId.startsWith("autocomplete") || cleanId.startsWith("commit_message") || cleanId.startsWith("audio_transcription")) return false
         if (cleanId.contains("internal") || cleanName.contains("internal")) return false
         if (cleanId.contains("embedding") || cleanName.contains("embedding")) return false
         if (cleanId.endsWith("-disabled") || cleanId.endsWith("_disabled") || cleanName.endsWith("-disabled")) return false
         if (cleanId.startsWith("debug") || cleanName.startsWith("debug")) return false
 
-        val knownAiPrefixes = listOf("gemini", "claude", "gpt", "o1", "o3", "o4", "deepseek", "llama", "mistral", "qwen", "argon", "hydrogen", "neon", "orchestrator")
-        val isKnownAi = knownAiPrefixes.any { cleanId.contains(it) || cleanName.contains(it) }
-        val provider = providerForDisplayName(displayName).ifBlank { providerForDisplayName(cleanId) }
-        val hasKnownProvider = provider == "Google" || provider == "Anthropic" || provider == "OpenAI"
-
-        return isKnownAi || hasKnownProvider
+        return true
     }
 
     fun providerForDisplayName(displayName: String): String = when {
-        displayName.startsWith("Gemini", ignoreCase = true) || displayName.contains("gemini", ignoreCase = true) || displayName.contains("google", ignoreCase = true) || displayName.contains("argon", ignoreCase = true) || displayName.contains("hydrogen", ignoreCase = true) || displayName.contains("neon", ignoreCase = true) -> "Google"
-        displayName.startsWith("Claude", ignoreCase = true) || displayName.contains("claude", ignoreCase = true) || displayName.contains("anthropic", ignoreCase = true) -> "Anthropic"
-        displayName.startsWith("GPT", ignoreCase = true) || displayName.contains("gpt", ignoreCase = true) || displayName.contains("openai", ignoreCase = true) -> "OpenAI"
+        displayName.contains("claude", ignoreCase = true) || displayName.contains("anthropic", ignoreCase = true) -> "Anthropic"
+        displayName.contains("gpt", ignoreCase = true) || displayName.contains("openai", ignoreCase = true) -> "OpenAI"
+        displayName.contains("gemini", ignoreCase = true) || displayName.contains("google", ignoreCase = true) -> "Google"
         else -> ""
     }
 

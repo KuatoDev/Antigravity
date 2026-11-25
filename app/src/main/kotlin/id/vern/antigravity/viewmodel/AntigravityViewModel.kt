@@ -400,10 +400,15 @@ class AntigravityViewModel : ViewModel() {
             val result = AgyModelsService.fetchCliModels(context, force = force)
             if (result.models.isNotEmpty()) {
                 adoptCliCatalog(context, result.models)
-                val hasArgonInCli = result.models.any { CloudCodeQuotaService.isArgonModel(it.cliId, it.displayName) }
-                val currentGroups = mutableUserQuotaSummary.value?.groups.orEmpty()
-                val hasArgonGroup = currentGroups.any { it.displayName.contains("argon", ignoreCase = true) }
-                if (hasArgonInCli && !hasArgonGroup) {
+                val currentAvail = mutableUserQuotaSummary.value?.availableModels.orEmpty()
+                val hasUnmappedCliModel = currentAvail.isEmpty() || result.models.any { cli ->
+                    currentAvail.none { avail ->
+                        avail.modelId.equals(cli.cliId, ignoreCase = true) ||
+                        avail.matches(cli.cliId) ||
+                        avail.matches(cli.displayName)
+                    }
+                }
+                if (hasUnmappedCliModel) {
                     val refreshedQuota = CloudCodeQuotaService.fetchQuotaSummary(context, mutableCodeAssistTier.value)
                     if (refreshedQuota != null) {
                         mutableUserQuotaSummary.value = refreshedQuota

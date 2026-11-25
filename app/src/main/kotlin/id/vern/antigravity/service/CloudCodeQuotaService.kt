@@ -353,10 +353,6 @@ object CloudCodeQuotaService {
         else -> "Google"
     }
 
-    fun isArgonModel(id: String, title: String = ""): Boolean {
-        return id.contains("argon", ignoreCase = true) || title.contains("argon", ignoreCase = true)
-    }
-
     private val COMMON_GROUP_WORDS = setOf("and", "or", "models", "model", "quota", "group", "the", "for", "limits", "limit")
 
     private fun groupMatchScore(modelId: String, modelTitle: String, modelProvider: String, groupName: String, groupDesc: String): Int {
