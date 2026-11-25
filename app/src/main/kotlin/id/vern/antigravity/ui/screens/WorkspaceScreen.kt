@@ -65,6 +65,7 @@ import id.vern.antigravity.ui.components.DiffViewer
 import id.vern.antigravity.ui.components.FileTree
 import id.vern.antigravity.ui.components.ModelSelectorDialog
 import id.vern.antigravity.ui.components.TerminalView
+import id.vern.antigravity.util.ExternalFileOpener
 import id.vern.antigravity.viewmodel.AntigravityViewModel
 import java.io.File
 
@@ -102,6 +103,10 @@ fun WorkspaceScreen(
     }
 
     fun openFile(file: File) {
+        if (ExternalFileOpener.isExternalBinaryFile(file)) {
+            ExternalFileOpener.openFile(context, file)
+            return
+        }
         viewModel.openFileInEditor(file)
         activeView = ActiveToolView.EDITOR
     }
