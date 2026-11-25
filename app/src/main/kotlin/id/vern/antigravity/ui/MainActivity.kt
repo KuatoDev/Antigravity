@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.unit.dp
+import id.vern.antigravity.service.AgentCompletionNotification
 import id.vern.antigravity.ui.components.DialogBlurState
 import id.vern.antigravity.ui.components.AppUpdateDialog
 import id.vern.antigravity.util.UpdateChecker
@@ -119,7 +120,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        AgentCompletionNotification.onActivityResumed(this)
         viewModel.onActivityResume(this)
+    }
+
+    override fun onPause() {
+        AgentCompletionNotification.onActivityPaused()
+        super.onPause()
     }
 }
 
