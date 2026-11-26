@@ -8,6 +8,7 @@ import android.net.Uri
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import id.vern.antigravity.R
 import java.io.File
 import java.net.URLDecoder
 import java.util.Locale
@@ -116,7 +117,7 @@ object ExternalFileOpener {
             if (file != null && file.exists()) {
                 return openFile(context, file)
             }
-            Toast.makeText(context, "File not found: ${file?.name ?: trimmed}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.file_opener_not_found, file?.name ?: trimmed), Toast.LENGTH_SHORT).show()
             return false
         }
 
@@ -136,7 +137,7 @@ object ExternalFileOpener {
             context.startActivity(intent)
             true
         } catch (e: Exception) {
-            Toast.makeText(context, "Cannot open: $trimmed", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.file_opener_cannot_open, trimmed), Toast.LENGTH_SHORT).show()
             false
         }
     }
@@ -160,7 +161,7 @@ object ExternalFileOpener {
 
     fun openFile(context: Context, file: File, fallbackMime: String? = null): Boolean {
         if (!file.exists()) {
-            Toast.makeText(context, "File not found: ${file.name}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.file_opener_not_found, file.name), Toast.LENGTH_SHORT).show()
             return false
         }
         val targetFile = try {
@@ -172,7 +173,7 @@ object ExternalFileOpener {
         val contentUri = try {
             FileProvider.getUriForFile(context, authority, targetFile)
         } catch (e: Exception) {
-            Toast.makeText(context, "Cannot share file: ${targetFile.name}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.file_opener_cannot_share, targetFile.name), Toast.LENGTH_SHORT).show()
             return false
         }
 
@@ -220,11 +221,11 @@ object ExternalFileOpener {
                 context.startActivity(chooser)
                 true
             } catch (_: Exception) {
-                Toast.makeText(context, "No app available to open: $displayName", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.file_opener_no_app, displayName), Toast.LENGTH_SHORT).show()
                 false
             }
         } catch (e: Exception) {
-            Toast.makeText(context, "Cannot open: $displayName", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.file_opener_cannot_open, displayName), Toast.LENGTH_SHORT).show()
             false
         }
     }

@@ -396,6 +396,12 @@
     <string name="notification_channel_desc">Eksekutor latar belakang dan pengawas proses Antigravity</string>
     <string name="notification_engine_active">Antigravity Aktif</string>
     <string name="notification_engine_running">Antigravity Engine Berjalan</string>
+    <string name="notification_agent_working">Agen sedang bekerja…</string>
+    <string name="notification_agent_command">Menjalankan: %1$s</string>
+    <string name="notification_agent_responding">Menulis respons…</string>
+    <string name="notification_agent_edit">Mengedit: %1$s</string>
+    <string name="notification_agent_read">Membaca: %1$s</string>
+    <string name="notification_agent_search">Mencari: %1$s</string>
     <string name="notification_action_stop">Stop</string>
     <string name="notification_action_restart">Restart</string>
 
@@ -650,5 +656,9 @@
     <string name="agent_error_notification_title">Antigravity · Gagal</string>
     <string name="settings_notify_on_completion_title">Notifikasi saat selesai merespons</string>
     <string name="settings_notify_on_completion_desc">Kirim notifikasi saat Antigravity selesai berpikir ketika aplikasi di latar belakang atau layar mati.</string>
+    <string name="file_opener_not_found">Berkas tidak ditemukan: %1$s</string>
+    <string name="file_opener_cannot_open">Tidak dapat membuka: %1$s</string>
+    <string name="file_opener_cannot_share">Tidak dapat membagikan berkas: %1$s</string>
+    <string name="file_opener_no_app">Tidak ada aplikasi untuk membuka: %1$s</string>
 </resources>
 

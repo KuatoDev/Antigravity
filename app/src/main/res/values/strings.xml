@@ -399,6 +399,9 @@
     <string name="notification_agent_working">Agent working…</string>
     <string name="notification_agent_command">Running: %1$s</string>
     <string name="notification_agent_responding">Writing response…</string>
+    <string name="notification_agent_edit">Editing: %1$s</string>
+    <string name="notification_agent_read">Reading: %1$s</string>
+    <string name="notification_agent_search">Searching: %1$s</string>
     <string name="notification_action_stop">Stop</string>
     <string name="notification_action_restart">Restart</string>
 
@@ -653,5 +656,9 @@
     <string name="agent_error_notification_title">Antigravity · Error</string>
     <string name="settings_notify_on_completion_title">Notify when finished</string>
     <string name="settings_notify_on_completion_desc">Send a notification when Antigravity finishes responding while in the background or screen is off.</string>
+    <string name="file_opener_not_found">File not found: %1$s</string>
+    <string name="file_opener_cannot_open">Cannot open: %1$s</string>
+    <string name="file_opener_cannot_share">Cannot share file: %1$s</string>
+    <string name="file_opener_no_app">No app available to open: %1$s</string>
 </resources>
 

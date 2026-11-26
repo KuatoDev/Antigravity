@@ -2123,10 +2123,13 @@ class AntigravityViewModel : ViewModel() {
                                                     val command = if (toolName == "run_command") {
                                                         params?.optString("CommandLine").orEmpty().trim()
                                                     } else ""
-                                                    val notificationText = if (command.isNotBlank()) {
-                                                        context.getString(R.string.notification_agent_command, command)
-                                                    } else {
-                                                        toolDesc
+                                                    val notificationText = when {
+                                                        command.isNotBlank() -> context.getString(R.string.notification_agent_command, command)
+                                                        stepKind == AgentStepKind.EDITED -> context.getString(R.string.notification_agent_edit, "${stepTitle} ${stepDiff ?: ""}".trim())
+                                                        stepKind == AgentStepKind.ANALYZED -> context.getString(R.string.notification_agent_read, "${stepTitle} ${stepLines ?: ""}".trim())
+                                                        stepKind == AgentStepKind.SEARCH -> context.getString(R.string.notification_agent_search, stepTitle)
+                                                        stepKind == AgentStepKind.COMMAND -> context.getString(R.string.notification_agent_command, stepTitle)
+                                                        else -> stepTitle
                                                     }
                                                     synchronized<Unit>(activeNotificationSteps) {
                                                         activeNotificationSteps.remove(notificationStepId)

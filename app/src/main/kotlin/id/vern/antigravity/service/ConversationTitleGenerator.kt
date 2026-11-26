@@ -34,17 +34,18 @@ object ConversationTitleGenerator {
         val cleanedFallback = fallbackModelId?.let { AgyModelsService.cleanModelId(it) }?.takeIf { it.isNotBlank() }
         if (availableModels.isEmpty()) return cleanedFallback
 
-        val flashLite = availableModels.firstOrNull { m ->
-            val hay = "${m.cliId} ${m.displayName}".lowercase()
-            hay.contains("flash-lite") || hay.contains("flash_lite") || hay.contains("flash lite")
+        if (cleanedFallback != null) {
+            val matchingBase = availableModels.firstOrNull { it.cliId.equals(cleanedFallback, ignoreCase = true) }?.displayName
+            if (matchingBase != null) {
+                val lowVariant = availableModels.firstOrNull {
+                    it.displayName.equals(matchingBase, ignoreCase = true) && it.effort.equals("Low", ignoreCase = true)
+                }
+                if (lowVariant != null) return AgyModelsService.cleanModelId(lowVariant.cliId)
+            }
         }
-        if (flashLite != null) return AgyModelsService.cleanModelId(flashLite.cliId)
 
-        val flash = availableModels.firstOrNull { m ->
-            val hay = "${m.cliId} ${m.displayName}".lowercase()
-            hay.contains("flash")
-        }
-        if (flash != null) return AgyModelsService.cleanModelId(flash.cliId)
+        val anyLowVariant = availableModels.firstOrNull { it.effort.equals("Low", ignoreCase = true) }
+        if (anyLowVariant != null) return AgyModelsService.cleanModelId(anyLowVariant.cliId)
 
         return cleanedFallback ?: AgyModelsService.cleanModelId(availableModels.first().cliId)
     }
