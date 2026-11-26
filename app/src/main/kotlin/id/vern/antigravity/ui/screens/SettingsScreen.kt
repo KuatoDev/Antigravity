@@ -5508,26 +5508,51 @@ fun AboutSettingsPage(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     val contributors = listOf(
-                        Pair(R.string.about_contrib_vern_title, R.string.about_contrib_vern_desc),
-                        Pair(R.string.about_contrib_werdik_title, R.string.about_contrib_werdik_desc),
-                        Pair(R.string.about_contrib_termux_title, R.string.about_contrib_termux_desc),
-                        Pair(R.string.about_contrib_deepmind_title, R.string.about_contrib_deepmind_desc)
+                        Triple(R.string.about_contrib_vern_title, R.string.about_contrib_vern_desc, "https://github.com/KuatoDev"),
+                        Triple(R.string.about_contrib_irsyad_title, R.string.about_contrib_irsyad_desc, "https://github.com/irsyadbana31"),
+                        Triple(R.string.about_contrib_douglas_title, R.string.about_contrib_douglas_desc, "https://github.com/douglasmidiacerta"),
+                        Triple(R.string.about_contrib_werdik_title, R.string.about_contrib_werdik_desc, "https://github.com/werdio325-png"),
+                        Triple(R.string.about_contrib_termux_title, R.string.about_contrib_termux_desc, "https://github.com/termux"),
+                        Triple(R.string.about_contrib_deepmind_title, R.string.about_contrib_deepmind_desc, "https://deepmind.google")
                     )
 
-                    contributors.forEachIndexed { index, (titleRes, descRes) ->
+                    contributors.forEachIndexed { index, (titleRes, descRes, profileUrl) ->
                         if (index > 0) {
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
-                                modifier = Modifier.padding(vertical = 8.dp)
+                                modifier = Modifier.padding(vertical = 6.dp)
                             )
                         }
-                        Column {
-                            Text(
-                                text = stringResource(titleRes),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(profileUrl))
+                                    context.startActivity(intent)
+                                }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(titleRes),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                    contentDescription = stringResource(R.string.common_open),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = stringResource(descRes),
