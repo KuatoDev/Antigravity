@@ -1132,9 +1132,9 @@ object EngineExecutor {
         } catch (e: Exception) {}
     }
 
-    suspend fun runAgySlashCommandJson(
+    private suspend fun runIsolatedAgyArgs(
         context: Context,
-        command: String,
+        agyArgs: List<String>,
         timeoutMs: Long = 15_000L
     ): String? = withContext(Dispatchers.IO) {
         healEnvironment(context)
@@ -1145,27 +1145,48 @@ object EngineExecutor {
         val engineDir = File(filesDir, "engine")
         val prefixDir = File(filesDir, "usr")
         val prefixLib = File(prefixDir, "lib")
-        val libDir = File(engineDir, "glibc/lib")
-        val ldBin = File(libDir, "ld-linux-aarch64.so.1")
-        val agyBin = File(engineDir, "bin/agy")
+        val agyBin = listOf(
+            File(engineDir, "bin/agy"),
+            File(filesDir, "tmp/engine/bin/agy"),
+            File(filesDir, "runtime/bin/agy")
+        ).firstOrNull { it.exists() && it.isFile } ?: File(engineDir, "bin/agy")
+        val ldBin = listOf(
+            File(engineDir, "glibc/lib/ld-linux-aarch64.so.1"),
+            File(filesDir, "runtime/lib/ld-linux-aarch64.so.1"),
+            File(filesDir, "tmp/engine/glibc/lib/ld-linux-aarch64.so.1")
+        ).firstOrNull { it.exists() && it.isFile } ?: File(engineDir, "glibc/lib/ld-linux-aarch64.so.1")
         val certFile = File(prefixDir, "etc/tls/cert.pem")
+        val opensslConf = File(prefixDir, "etc/tls/openssl.cnf")
+        val usrBinAgy = File(prefixDir, "bin/agy")
 
-        if (!ldBin.exists() || !agyBin.exists()) return@withContext null
+        val canRunDirect = ldBin.exists() && agyBin.exists()
+        if (!canRunDirect && !usrBinAgy.exists()) return@withContext null
 
-        val libraryPaths = listOf(libDir.absolutePath, prefixLib.absolutePath)
-            .filter { File(it).exists() }
-            .joinToString(":")
+        val libraryPaths = listOf(
+            File(filesDir, "runtime/lib").absolutePath,
+            File(engineDir, "glibc/lib").absolutePath,
+            File(filesDir, "tmp/engine/glibc/lib").absolutePath,
+            prefixLib.absolutePath
+        ).filter { File(it).exists() }.distinct().joinToString(":")
 
-        val timeoutSec = ((timeoutMs / 1000L).coerceAtLeast(5L)).toString() + "s"
-        val cmdList = listOf(
-            ldBin.absolutePath,
-            "--library-path",
-            libraryPaths,
-            agyBin.absolutePath,
-            "--output-format", "json",
-            "--print-timeout", timeoutSec,
-            "-p", command
-        )
+        val cmdList = if (canRunDirect) {
+            mutableListOf(
+                ldBin.absolutePath,
+                "--library-path",
+                libraryPaths,
+                agyBin.absolutePath
+            ).apply { addAll(agyArgs) }
+        } else {
+            val shellBin = when {
+                File(prefixDir, "bin/bash").canExecute() -> File(prefixDir, "bin/bash").absolutePath
+                File(prefixDir, "bin/sh").canExecute() -> File(prefixDir, "bin/sh").absolutePath
+                else -> "/system/bin/sh"
+            }
+            mutableListOf(
+                shellBin,
+                usrBinAgy.absolutePath
+            ).apply { addAll(agyArgs) }
+        }
 
         val pb = ProcessBuilder(cmdList)
         pb.directory(homeDir)
@@ -1183,6 +1204,10 @@ object EngineExecutor {
         if (certFile.exists()) {
             env["SSL_CERT_FILE"] = certFile.absolutePath
             env["CURL_CA_BUNDLE"] = certFile.absolutePath
+            env["GIT_SSL_CAINFO"] = certFile.absolutePath
+        }
+        if (opensslConf.exists()) {
+            env["OPENSSL_CONF"] = opensslConf.absolutePath
         }
         env["GODEBUG"] = "netdns=cgo"
         env["AGY_APPLICATION_ID"] = context.packageName
@@ -1235,6 +1260,45 @@ object EngineExecutor {
 
         val result = outputSb.toString().trim()
         if (process.exitValue() == 0 && result.isNotBlank()) result else null
+    }
+
+    suspend fun runAgySlashCommandJson(
+        context: Context,
+        command: String,
+        timeoutMs: Long = 15_000L
+    ): String? {
+        val timeoutSec = ((timeoutMs / 1000L).coerceAtLeast(5L)).toString() + "s"
+        return runIsolatedAgyArgs(
+            context = context,
+            agyArgs = listOf("--output-format", "json", "--print-timeout", timeoutSec, "-p", command),
+            timeoutMs = timeoutMs
+        )
+    }
+
+    suspend fun runAgyQuickPrint(
+        context: Context,
+        prompt: String,
+        cliModelId: String? = null,
+        timeoutMs: Long = 15_000L
+    ): String? {
+        val timeoutSec = ((timeoutMs / 1000L).coerceAtLeast(5L)).toString() + "s"
+        val args = mutableListOf(
+            "--print",
+            "--output-format", "text",
+            "--disable-slash-commands",
+            "--print-timeout", timeoutSec,
+            "--effort", "low"
+        )
+        if (!cliModelId.isNullOrBlank() && !cliModelId.contains("-tiered", ignoreCase = true)) {
+            args.add("--model")
+            args.add(cliModelId)
+        }
+        args.add(prompt)
+        return runIsolatedAgyArgs(
+            context = context,
+            agyArgs = args,
+            timeoutMs = timeoutMs
+        )
     }
 
     private fun copyAssetFile(context: Context, assetPath: String, dest: File) {
