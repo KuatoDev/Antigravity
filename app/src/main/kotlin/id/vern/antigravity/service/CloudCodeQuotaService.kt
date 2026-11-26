@@ -10,9 +10,11 @@ import id.vern.antigravity.data.QuotaBucket
 import id.vern.antigravity.data.QuotaGroup
 import id.vern.antigravity.data.TierInfo
 import id.vern.antigravity.data.UserQuotaSummary
+import id.vern.antigravity.executor.EngineExecutor
 import id.vern.antigravity.oauth.OAuthManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.OutputStreamWriter
@@ -223,10 +225,23 @@ object CloudCodeQuotaService {
         return list.distinct()
     }
 
-    fun formatResetCountdown(resetTime: String?): String {
-        if (resetTime.isNullOrBlank()) return "<1 minute"
+    private fun sanitizeResetTime(resetTime: String?): String? {
+        val trimmed = resetTime?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        if (trimmed.startsWith("1970-") || trimmed.startsWith("0001-") || trimmed.equals("None", ignoreCase = true)) {
+            return null
+        }
         return try {
-            val target = Instant.parse(resetTime)
+            val target = Instant.parse(trimmed)
+            if (target.epochSecond <= 86400L) null else trimmed
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun formatResetCountdown(resetTime: String?): String {
+        val validReset = sanitizeResetTime(resetTime) ?: return "<1 minute"
+        return try {
+            val target = Instant.parse(validReset)
             val now = Instant.now()
             val diffMs = Duration.between(now, target).toMillis()
             if (diffMs <= 0) return "<1 minute"
@@ -248,9 +263,9 @@ object CloudCodeQuotaService {
     }
 
     fun formatSubtext(resetTime: String?): String? {
-        if (resetTime.isNullOrBlank()) return null
+        val validReset = sanitizeResetTime(resetTime) ?: return null
         return try {
-            val target = Instant.parse(resetTime)
+            val target = Instant.parse(validReset)
             val now = Instant.now()
             val diffMs = Duration.between(now, target).toMillis()
             if (diffMs <= 0) return "Resets in <1m"
@@ -453,7 +468,7 @@ object CloudCodeQuotaService {
                             val bId = bObj.optString("bucketId", "bucket-$j")
                             val bName = bObj.optString("displayName", "Limit Remaining")
                             val bWin = bObj.optString("window", "")
-                            val bReset = if (bObj.has("resetTime")) bObj.optString("resetTime").takeIf { it.isNotBlank() } else null
+                            val bReset = if (bObj.has("resetTime")) sanitizeResetTime(bObj.optString("resetTime")) else null
                             val bDesc = bObj.optString("description", "")
                             val bRem = if (bObj.has("remainingFraction")) bObj.optDouble("remainingFraction", 0.0)
                                 else if (bReset != null) 0.0 else 0.0
@@ -538,7 +553,7 @@ object CloudCodeQuotaService {
 
             val finalGroupsList = mutableListOf<QuotaGroup>()
 
-            // If there are unassigned models with quotaInfo, dynamically group them by provider
+            // If there are unassigned models with quotaInfo, dynamically group them by provider (5h window only, matching per-model quotaInfo)
             if (unassignedModelsWithQuota.isNotEmpty()) {
                 val byProvider = unassignedModelsWithQuota.groupBy { modelProviderName(it.third) }
                 for ((prov, list) in byProvider) {
@@ -550,7 +565,7 @@ object CloudCodeQuotaService {
                     var minReset: String? = null
                     for (item in list) {
                         val qi = item.third.optJSONObject("quotaInfo") ?: continue
-                        val rt = if (qi.has("resetTime")) qi.optString("resetTime").takeIf { it.isNotBlank() } else null
+                        val rt = if (qi.has("resetTime")) sanitizeResetTime(qi.optString("resetTime")) else null
                         val rem = when {
                             qi.has("remainingFraction") -> qi.optDouble("remainingFraction")
                             rt != null -> 0.0
@@ -564,49 +579,37 @@ object CloudCodeQuotaService {
                         }
                     }
 
-                    val fraction = minRem ?: 0.0
-                    val reset = minReset
+                    if (minRem != null || minReset != null) {
+                        val fraction = minRem ?: 0.0
+                        val reset = minReset
 
-                    val syntheticBuckets = listOf(
-                        QuotaBucket(
-                            bucketId = "${prov.lowercase()}-weekly",
-                            displayName = "Weekly Limit Remaining",
-                            window = "weekly",
-                            resetTime = reset,
-                            description = if (!reset.isNullOrBlank()) {
-                                "You have used some of your limit, it will fully refresh in ${formatResetCountdown(reset)}."
-                            } else {
-                                "Your individual tier weekly quota."
-                            },
-                            remainingFraction = fraction,
-                            disabled = false,
-                            subtext = formatSubtext(reset)
-                        ),
-                        QuotaBucket(
-                            bucketId = "${prov.lowercase()}-5h",
-                            displayName = "Five Hour Limit Remaining",
-                            window = "5h",
-                            resetTime = reset,
-                            description = if (!reset.isNullOrBlank()) {
-                                "You have used some of your limit, it will fully refresh in ${formatResetCountdown(reset)}."
-                            } else {
-                                "Resets in 5 hours"
-                            },
-                            remainingFraction = fraction,
-                            disabled = false,
-                            subtext = formatSubtext(reset)
+                        val syntheticBuckets = listOf(
+                            QuotaBucket(
+                                bucketId = "${prov.lowercase()}-5h",
+                                displayName = "Five Hour Limit Remaining",
+                                window = "5h",
+                                resetTime = reset,
+                                description = if (!reset.isNullOrBlank()) {
+                                    "You have used some of your 5-hour limit, it will fully refresh in ${formatResetCountdown(reset)}."
+                                } else {
+                                    "Resets in 5 hours"
+                                },
+                                remainingFraction = fraction,
+                                disabled = false,
+                                subtext = formatSubtext(reset)
+                            )
                         )
-                    )
 
-                    finalGroupsList.add(
-                        QuotaGroup(
-                            displayName = groupDisplayName,
-                            description = "Models within this group: ${groupSharedTitles.joinToString(", ")}",
-                            sharedModels = groupSharedTitles,
-                            buckets = syntheticBuckets,
-                            modelIds = groupModelIds
+                        finalGroupsList.add(
+                            QuotaGroup(
+                                displayName = groupDisplayName,
+                                description = "Models within this group: ${groupSharedTitles.joinToString(", ")}",
+                                sharedModels = groupSharedTitles,
+                                buckets = syntheticBuckets,
+                                modelIds = groupModelIds
+                            )
                         )
-                    )
+                    }
                 }
             }
 
@@ -898,12 +901,120 @@ object CloudCodeQuotaService {
         }
     }
 
+    internal fun convertAgyUsageJsonToQuotaSummary(raw: String): String? {
+        return try {
+            val jsonStart = raw.indexOf('{')
+            if (jsonStart < 0) return null
+            val root = JSONObject(raw.substring(jsonStart).trim())
+            val data = root.optJSONObject("command")?.optJSONObject("data")
+                ?: root.optJSONObject("data")
+                ?: root
+            val srcGroups = data.optJSONArray("groups") ?: return null
+            if (srcGroups.length() == 0) return null
+
+            val outGroups = JSONArray()
+            for (i in 0 until srcGroups.length()) {
+                val g = srcGroups.optJSONObject(i) ?: continue
+                val gName = g.optString("name").ifBlank { g.optString("displayName", "Model Quota") }
+                val gDesc = g.optString("description", "")
+                val srcBuckets = g.optJSONArray("buckets") ?: JSONArray()
+                val outBuckets = JSONArray()
+                for (j in 0 until srcBuckets.length()) {
+                    val b = srcBuckets.optJSONObject(j) ?: continue
+                    val bId = b.optString("id").ifBlank { b.optString("bucketId", "bucket-$j") }
+                    val bName = b.optString("name").ifBlank { b.optString("displayName", "Limit Remaining") }
+                    val bWin = b.optString("window", "")
+                    val bDesc = b.optString("description", "")
+                    val rawReset = b.optString("reset_time").ifBlank { b.optString("resetTime", "") }
+                    val bReset = sanitizeResetTime(rawReset)
+                    val bRem = when {
+                        b.has("remaining_fraction") -> b.optDouble("remaining_fraction", 0.0)
+                        b.has("remainingFraction") -> b.optDouble("remainingFraction", 0.0)
+                        bReset != null -> 0.0
+                        else -> 0.0
+                    }
+                    val bDis = b.optBoolean("disabled", false)
+
+                    val outB = JSONObject().apply {
+                        put("bucketId", bId)
+                        put("displayName", bName)
+                        if (bWin.isNotBlank()) put("window", bWin)
+                        if (bDesc.isNotBlank()) put("description", bDesc)
+                        if (bReset != null) put("resetTime", bReset)
+                        put("remainingFraction", bRem)
+                        if (bDis) put("disabled", true)
+                    }
+                    outBuckets.put(outB)
+                }
+
+                val outG = JSONObject().apply {
+                    put("displayName", gName)
+                    if (gDesc.isNotBlank()) put("description", gDesc)
+                    put("buckets", outBuckets)
+                }
+                outGroups.put(outG)
+            }
+
+            if (outGroups.length() == 0) return null
+            JSONObject().apply {
+                put("groups", outGroups)
+                val desc = data.optString("description", "")
+                if (desc.isNotBlank()) put("description", desc)
+            }.toString()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse agy /usage JSON: ${e.message}")
+            null
+        }
+    }
+
+    private suspend fun fetchFromAgyCliUsage(context: Context, tier: CodeAssistTier? = null): UserQuotaSummary? {
+        return try {
+            val raw = EngineExecutor.runAgySlashCommandJson(context, "/usage", timeoutMs = 15_000L)
+                ?: return null
+            val normalizedQuotaJson = convertAgyUsageJsonToQuotaSummary(raw) ?: return null
+
+            var modelsRespStr: String? = null
+            try {
+                OAuthManager.refreshTokenIfNeeded(context)
+                val token = OAuthManager.getAccessToken(context)
+                if (!token.isNullOrBlank()) {
+                    modelsRespStr = makePostRequestWithFallback(MODELS_PATH, token)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Optional fetchAvailableModels during CLI /usage failed: ${e.message}")
+            }
+
+            val summary = parseQuotaSummaryResponse(
+                respStr = normalizedQuotaJson,
+                modelsRespStr = modelsRespStr,
+                tier = tier,
+                modelsFetchFailed = modelsRespStr == null,
+                context = context
+            )
+            if (summary != null && summary.groups.isNotEmpty()) {
+                Log.i(TAG, "Successfully loaded live quota from agy CLI /usage (${summary.groups.size} groups)")
+                summary
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load live quota from agy CLI /usage: ${e.message}")
+            null
+        }
+    }
+
     suspend fun fetchQuotaSummary(context: Context, preloadedTier: CodeAssistTier? = null): UserQuotaSummary? = withContext(Dispatchers.IO) {
         val tier = preloadedTier ?: fetchCodeAssistTier(context)
 
+        val cliSummary = fetchFromAgyCliUsage(context, tier)
+        if (cliSummary != null && cliSummary.groups.isNotEmpty()) {
+            Log.i(TAG, "Priority 1: Successfully retrieved live quota from agy CLI /usage (${cliSummary.groups.size} groups)")
+            return@withContext cliSummary
+        }
+
         val localSummary = fetchFromLocalLanguageServer(context, tier)
         if (localSummary != null && localSummary.groups.isNotEmpty()) {
-            Log.i(TAG, "Priority 1: Successfully retrieved live quota from local Language Server (${localSummary.groups.size} groups)")
+            Log.i(TAG, "Priority 2: Successfully retrieved live quota from local Language Server (${localSummary.groups.size} groups)")
             return@withContext localSummary
         }
 
